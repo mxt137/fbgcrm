@@ -417,8 +417,8 @@
   function resetFilter() { 
     document.getElementById('filterSearch').value = ''; 
     document.getElementById('filterCity').value = ''; 
-    document.getElementById('filterSource').value = 'all'; 
     document.getElementById('filterStatus').value = 'all'; 
+    document.getElementById('filterSource').value = 'all'; 
     document.getElementById('filterSales').value = 'all'; 
     currentPage = 1; 
     loadCustomers(); 
@@ -588,7 +588,7 @@
     finally { btn.innerHTML = '<i class="ti ti-device-floppy fs-3 me-2"></i> Lưu thông tin'; btn.disabled = false; }
   }
 
-  // 6. CHUYỂN TEAM WORK
+  // 6. CHUYỂN TEAM WORK (TÍCH HỢP CHỐNG TRÙNG SỐ ĐIỆN THOẠI)
   async function transferCustomer(id) {
     // 1. Lấy danh sách team của User để hiện popup
     const { data: teams } = await window.sbClient.from('team_members').select('team_id, teams(id, name)').eq('member_id', window.currentUser.id);
@@ -615,7 +615,47 @@
     });
 
     if (selectedTeamId) {
-      // 3. Gọi RPC chuyển data
+      // --- BƯỚC KIỂM TRA TRÙNG LẶP SỐ ĐIỆN THOẠI TRƯỚC KHI CHUYỂN ---
+      const currentCus = globalCustomers.find(c => c.id === id);
+      if (!currentCus || !currentCus.phone) {
+        Swal.fire('Lỗi', 'Khách hàng không có số điện thoại hợp lệ để kiểm tra.', 'error');
+        return;
+      }
+
+      // Chuẩn hóa SĐT: Chỉ lấy số, cắt 9 số cuối (Trị mọi định dạng +84, 090, dấu cách, chữ cái P:...)
+      const myPhone9 = String(currentCus.phone).replace(/\D/g, '').slice(-9);
+
+      // Kéo SĐT của Team về đối chiếu
+      const { data: teamPhones, error: errFetch } = await window.sbClient
+        .from('team_customers')
+        .select('phone')
+        .eq('team_id', selectedTeamId);
+
+      if (errFetch) {
+        Swal.fire('Lỗi Database', 'Không thể kiểm tra trùng lặp data.', 'error');
+        return;
+      }
+
+      let isDuplicate = false;
+      if (teamPhones && teamPhones.length > 0) {
+        isDuplicate = teamPhones.some(tc => {
+          const teamPhone9 = String(tc.phone || '').replace(/\D/g, '').slice(-9);
+          return teamPhone9 === myPhone9;
+        });
+      }
+
+      if (isDuplicate) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Trùng lặp Data',
+          text: 'Khách hàng có số điện thoại này đã tồn tại trong Team Work bạn chọn! Không thể thêm mới để tránh trùng lặp.',
+          confirmButtonColor: '#146654'
+        });
+        return;
+      }
+      // --- KẾT THÚC KIỂM TRA TRÙNG ---
+
+      // 3. Gọi RPC chuyển data nếu SĐT hợp lệ và không trùng
       try {
         const { error } = await window.sbClient.rpc('transfer_to_team', {
           p_customer_id: id,
@@ -624,8 +664,12 @@
         });
         if (error) throw error;
 
-        Swal.fire('Thành công', 'Khách hàng đã được copy sang Team Work!', 'success');
-        // loadCustomers(); // (Bật dòng này nếu anh Uncomment lệnh Delete ở DB để nó ẩn khách đi)
+        Swal.fire({
+          icon: 'success', 
+          title: 'Thành công', 
+          text: 'Khách hàng đã được đẩy sang Không gian làm việc nhóm!',
+          confirmButtonColor: '#146654'
+        });
       } catch (err) {
         Swal.fire('Lỗi', err.message, 'error');
       }
