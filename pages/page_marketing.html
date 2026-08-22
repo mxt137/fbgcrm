@@ -320,7 +320,6 @@
       const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
       const col = document.createElement('div'); col.className = 'col-md-6';
       
-      // THAY ĐỔI LỚN: GỘP NÚT BỎ QUA CHO UI/UX QUIET LUXURY
       col.innerHTML = `
         <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
           <div class="d-flex justify-content-between align-items-start mb-2">
@@ -366,7 +365,7 @@
     } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
   }
 
-  // 6. BỐC SỐ TỰ ĐỘNG - ÁP DỤNG CHỐT CHẶN BẢO MẬT & CHỐNG TRÙNG
+  // 6. BỐC SỐ TỰ ĐỘNG
   async function drawNewLeads() {
     const btn = document.getElementById('btnGetLeads');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
@@ -426,23 +425,34 @@
     }
   }
 
-  // 7. XỬ LÝ NÚT BỎ QUA - BẬT POPUP CHỌN LÝ DO
+  // 7. XỬ LÝ NÚT BỎ QUA - BẬT POPUP CHỌN LÝ DO THÔNG MINH
   async function handleRejection(leadId) {
     const { value: reason } = await Swal.fire({
       title: 'Lý do bỏ qua data này?',
-      input: 'radio',
-      inputOptions: {
-        'Không nghe máy': 'Không nghe máy',
-        'Không nhu cầu': 'Không có nhu cầu',
-        'Rác/Spam': 'Số Rác / Spam / Thuê bao'
-      },
-      inputValidator: (value) => {
-        if (!value) return 'Vui lòng chọn 1 lý do!'
-      },
+      html: `
+        <div class="mb-3 text-start">
+          <label class="form-label text-muted fw-bold" style="font-size: 12px;">NHẬP LÝ DO HOẶC CHỌN GỢI Ý:</label>
+          <input id="swal-input-reason" class="form-control form-control-lg" placeholder="VD: Khách báo đã mua dự án khác..." autocomplete="off" style="border-radius: 8px;">
+        </div>
+        <div class="d-flex flex-wrap gap-2 justify-content-start">
+          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không nghe máy'">Không nghe máy</span>
+          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không có nhu cầu'">Không có nhu cầu</span>
+          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Sai số / Nhầm người'">Sai số / Nhầm người</span>
+          <span class="badge bg-danger-lt p-2 text-danger" style="cursor: pointer; border: 1px solid #fca5a5;" onclick="document.getElementById('swal-input-reason').value='Số Rác / Thuê bao'">Số Rác / Thuê bao</span>
+        </div>
+      `,
       showCancelButton: true,
-      confirmButtonText: 'Xác nhận Bỏ qua',
-      cancelButtonText: 'Đóng',
-      confirmButtonColor: '#e11d48'
+      confirmButtonText: '<i class="ti ti-check me-1"></i> Xác nhận Bỏ qua',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#e11d48',
+      preConfirm: () => {
+        const val = document.getElementById('swal-input-reason').value.trim();
+        if (!val) {
+          Swal.showValidationMessage('Vui lòng nhập lý do cụ thể hoặc nhấp chọn gợi ý!');
+          return false;
+        }
+        return val;
+      }
     });
 
     if (reason) {
@@ -450,24 +460,25 @@
     }
   }
 
-  // 8. GHI NHẬN BÁO CÁO QUA RPC
+  // 8. GHI NHẬN BÁO CÁO QUA RPC ĐỂ ĐẢM BẢO CHẠY LOGIC CHỐNG TRÙNG VÀ ĐẾM SỐ LẦN
   async function submitQuickReport(leadId, reportType) {
     const card = document.getElementById(`lead-card-${leadId}`);
     card.style.opacity = '0.5'; 
     try {
-      // SỬ DỤNG RPC ĐỂ ĐẢM BẢO CHẠY LOGIC CHỐNG TRÙNG VÀ ĐẾM SỐ LẦN ĐÃ VIẾT Ở BƯỚC 1
+      const myId = window.currentUser.id;
+
+      // Đẩy qua Backend RPC xử lý logic phân luồng (Tiềm năng hay Nhả số quay vòng)
       const { error } = await window.sbClient.rpc('report_marketing_lead', {
         p_lead_id: leadId,
-        p_sales_id: window.currentUser.id,
+        p_sales_id: myId,
         p_report: reportType
       });
 
       if (error) throw error;
 
-      // NẾU TIỀM NĂNG -> BAY SANG TAB KHÁCH HÀNG & MỞ POPUP AUTO-FILL
+      // NẾU LÀ TIỀM NĂNG -> BAY SANG TAB KHÁCH HÀNG & MỞ POPUP AUTO-FILL
       if (reportType === 'Tiềm năng') {
         const leadData = myPendingLeads.find(l => l.id === leadId);
-        const myId = window.currentUser.id; 
         const myName = window.currentUser.full_name; 
         
         switchPage('khachhang');
@@ -492,7 +503,7 @@
         }
       }
 
-      // Thông báo thành công nhỏ gọn
+      // Thông báo UI nhanh gọn
       Swal.fire({
         toast: true, position: 'bottom-end', icon: 'success', 
         title: `Đã báo cáo: ${reportType}`, showConfirmButton: false, timer: 3000
