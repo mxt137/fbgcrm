@@ -12,7 +12,6 @@
   .proposal-alert { background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2); }
   .log-line { margin-bottom: 4px; }
 
-  /* Hiệu ứng nhấp nháy cho báo hiệu có Log mới */
   @keyframes pulseRed {
     0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
     70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
@@ -34,6 +33,10 @@
         <select id="teamSelector" class="form-select fw-bold" style="min-width: 200px; color: #146654;" onchange="changeActiveTeam()">
           <option value="">-- Chọn Team của bạn --</option>
         </select>
+        <!-- NÚT LÀM MỚI DATA -->
+        <button class="btn btn-outline-secondary shadow-sm fw-bold" id="btnRefreshTeam" onclick="refreshTeamData()">
+          <i class="ti ti-refresh me-2"></i> Làm mới
+        </button>
         <button class="btn btn-outline-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modal-manage-team" onclick="openManageTeamModal()">
           <i class="ti ti-settings me-2"></i> Quản lý Team
         </button>
@@ -107,8 +110,11 @@
             </div>
           </div>
 
-          <!-- NHẬP LIỆU CHAT -->
+          <!-- NHẬP LIỆU CHAT KÈM CẢNH BÁO -->
           <div class="card-footer bg-white p-3 border-top" style="border-radius: 0 0 12px 12px;">
+            <div class="text-danger mb-2 fw-bold" style="font-size: 11.5px; font-style: italic;">
+              <i class="ti ti-alert-circle me-1"></i> Lưu ý: Hệ thống chỉ lưu tối đa 50 logs gần nhất. Vui lòng thảo luận đúng trọng tâm để tối ưu dữ liệu!
+            </div>
             <form id="chatForm" onsubmit="event.preventDefault(); submitTeamLog();">
               <div class="mb-2">
                 <textarea id="chatInput" class="form-control" rows="2" placeholder="Nhập báo cáo tương tác hoặc ý kiến thảo luận..." required disabled style="resize: none; border-radius: 8px;"></textarea>
@@ -260,14 +266,13 @@
   let allMembersCache = []; 
   let globalTeamCustomers = [];
 
-  // =====================================
-  // KIỂM SOÁT PHÂN TRANG (PAGINATION)
-  // =====================================
   let currentTeamPage = 1;
-  const teamItemsPerPage = 30;
+  const teamItemsPerPage = 30; // 30 Khách hàng / 1 Trang
   let totalTeamItems = 0;
 
+  // =====================================
   // 1. KHỞI TẠO MODULE
+  // =====================================
   async function loadTeamWorkModule() {
     await fetchAllMembers();
     await fetchMyTeams();
@@ -297,7 +302,51 @@
     selector.innerHTML = opts;
   }
 
+  // =====================================
+  // HÀM LÀM MỚI DATA TỪ NÚT BẤM (REFRESH)
+  // =====================================
+  async function refreshTeamData() {
+    if (!currentTeamId) {
+      Swal.fire('Lưu ý', 'Hãy chọn Team để làm mới dữ liệu!', 'info');
+      return;
+    }
+    const btn = document.getElementById('btnRefreshTeam');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang tải...';
+    btn.disabled = true;
+
+    try {
+      await loadTeamCustomers();
+      if (activeCustomerId) {
+        await loadTeamLogs();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      btn.innerHTML = '<i class="ti ti-refresh me-2"></i> Làm mới';
+      btn.disabled = false;
+    }
+  }
+
+  // =====================================
+  // HÀM DỌN DẸP LOGS RÁC KHỎI DB (MAX 50)
+  // =====================================
+  async function cleanupTeamLogs(customerId) {
+    try {
+      // Tìm các logs dư thừa (từ log thứ 50 trở đi)
+      const { data: oldLogs } = await window.sbClient.from('team_logs')
+        .select('id').eq('team_customer_id', customerId)
+        .order('created_at', { ascending: false }).range(50, 999);
+        
+      // Tiến hành xóa các ID cũ này để giải phóng dung lượng Database
+      if (oldLogs && oldLogs.length > 0) {
+        await window.sbClient.from('team_logs').delete().in('id', oldLogs.map(l => l.id));
+      }
+    } catch(e) { console.error('Cleanup logs error', e); }
+  }
+
+  // =====================================
   // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM / XÓA NGƯỜI)
+  // =====================================
   async function openManageTeamModal() {
     const manageSection = document.getElementById('manageTeamSection');
     const warningSection = document.getElementById('noTeamSelectedWarning');
@@ -415,7 +464,7 @@
   }
 
   // =====================================
-  // 3. XỬ LÝ CHỌN TEAM VÀ LOAD KHÁCH HÀNG (CÓ PHÂN TRANG)
+  // 3. XỬ LÝ CHỌN TEAM VÀ LOAD KHÁCH HÀNG
   // =====================================
   function changeActiveTeam() {
     currentTeamId = document.getElementById('teamSelector').value;
@@ -448,7 +497,6 @@
     const from = (currentTeamPage - 1) * teamItemsPerPage;
     const to = from + teamItemsPerPage - 1;
 
-    // Lệnh order ưu tiên đưa khách hàng vừa được update (Có Log/Sửa) lên trên cùng
     const { data, error, count } = await window.sbClient
       .from('team_customers')
       .select('*', { count: 'exact' })
@@ -466,13 +514,12 @@
     globalTeamCustomers = data; 
     totalTeamItems = count || 0;
 
-    // QUY TRÌNH THÔNG MINH: ĐẾM LOG VÀ PHÁT HIỆN "CÓ LOG MỚI" TỪ DB
     const customerIds = data.map(c => c.id);
     const { data: logStats } = await window.sbClient
       .from('team_logs')
       .select('team_customer_id, member_id, created_at')
       .in('team_customer_id', customerIds)
-      .order('created_at', { ascending: false }); // Xếp mới nhất lên trên để nhận diện
+      .order('created_at', { ascending: false }); 
 
     const logsMap = {};
     customerIds.forEach(id => logsMap[id] = { count: 0, hasNew: false, latest_processed: false });
@@ -480,7 +527,6 @@
     if (logStats) {
       logStats.forEach(log => {
         logsMap[log.team_customer_id].count++;
-        // Kiểm tra Log mới: Nếu log cuối cùng KHÔNG phải do mình đăng -> Có log mới
         if (!logsMap[log.team_customer_id].latest_processed) {
           if (log.member_id !== window.currentUser.id) {
             logsMap[log.team_customer_id].hasNew = true; 
@@ -498,14 +544,12 @@
       const tr = document.createElement('tr');
       tr.className = 'customer-row';
       tr.id = `tc-row-${cus.id}`;
-      // Giữ class active nếu dòng này đang được chọn để chat
       if (cus.id === activeCustomerId) tr.classList.add('active');
       tr.onclick = () => selectTeamCustomer(cus);
       
       const stt = (currentTeamPage - 1) * teamItemsPerPage + index + 1;
       const logInfo = logsMap[cus.id];
       
-      // Xây dựng Badge hiển thị Logs và cảnh báo "MỚI"
       let logBadge = `<span class="badge bg-secondary-lt fw-bold" title="Tổng số Logs">${logInfo.count}</span>`;
       if (logInfo.hasNew) {
         logBadge += ` <span class="badge bg-red text-white ms-1 pulse-animation" title="Có tương tác mới">MỚI</span>`;
@@ -583,9 +627,6 @@
     }
 
     await loadTeamLogs();
-    
-    // Nếu vừa Click vào xem -> Cập nhật lại danh sách để tắt hiệu ứng Nhấp nháy "MỚI" (Do đã xem log)
-    // Tạm thời vô hiệu hóa load tự động để tránh giật hình, hiệu ứng sẽ mất ở lần F5 hoặc Refresh sau.
   }
 
   async function loadTeamLogs() {
@@ -598,7 +639,7 @@
     
     box.innerHTML = '';
     if (!data || data.length === 0) {
-      box.innerHTML = '<div class="text-center py-4 text-muted">Chưa có thảo luận nào. Hãy gửi ý kiến đầu tiên!</div>';
+      box.innerHTML = '<div class="text-center py-5 text-muted">Chưa có thảo luận nào. Hãy gửi ý kiến đầu tiên!</div>';
       return;
     }
 
@@ -654,7 +695,7 @@
   }
 
   // =====================================
-  // 5. GỬI LOG MỚI HOẶC ĐỀ XUẤT (CẬP NHẬT UPDATED_AT ĐỂ PUSH LÊN ĐẦU)
+  // 5. GỬI LOG MỚI HOẶC ĐỀ XUẤT 
   // =====================================
   async function submitTeamLog() {
     const input = document.getElementById('chatInput');
@@ -666,7 +707,6 @@
     try {
       const vnTime = new Date().toISOString();
 
-      // CẬP NHẬT TEAM_CUSTOMERS ĐỂ ĐẨY KHÁCH HÀNG NÀY LÊN ĐẦU BẢNG XẾP HẠNG
       const updatePayload = { updated_at: vnTime };
       if (isProposal) {
         updatePayload.proposal = content;
@@ -677,7 +717,6 @@
 
       await window.sbClient.from('team_customers').update(updatePayload).eq('id', activeCustomerId);
 
-      // Lưu log vào DB
       await window.sbClient.from('team_logs').insert([{
         team_customer_id: activeCustomerId,
         member_id: window.currentUser.id,
@@ -689,18 +728,18 @@
       input.value = '';
       document.getElementById('chatIsProposal').checked = false;
       
-      // Tải lại Log Chat
       await loadTeamLogs();
-      
-      // Tải lại danh sách khách hàng để sắp xếp người vừa Chat lên ưu tiên Top 1
       await loadTeamCustomers();
+      
+      // AUTO-CLEANUP LOGS RÁC
+      cleanupTeamLogs(activeCustomerId);
 
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
     finally { input.disabled = false; input.focus(); }
   }
 
   // =====================================
-  // 6. THÊM / SỬA KHÁCH TEAM (DIFFING BÁO CÁO)
+  // 6. THÊM / SỬA KHÁCH TEAM 
   // =====================================
   async function openTeamCustomerModal(id = null) {
     if (!currentTeamId) { Swal.fire('Lưu ý', 'Hãy chọn Team trước!', 'warning'); return; }
@@ -770,6 +809,9 @@
             created_at: vnTime,
             is_proposal: false
           }]);
+          
+          // AUTO-CLEANUP LOGS RÁC
+          cleanupTeamLogs(id);
         }
       } else {
         payload.created_by = window.currentUser.id;
@@ -782,9 +824,9 @@
       document.getElementById('btnCloseTeamCusModal').click();
       Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
       
-      await loadTeamCustomers(); // Tải lại danh sách và đẩy người này lên đầu bảng
+      await loadTeamCustomers();
       if (id && id === activeCustomerId) {
-         await loadTeamLogs(); // Tải lại logs nếu đang chat
+         await loadTeamLogs();
       }
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy me-2"></i> Lưu dữ liệu'; }
