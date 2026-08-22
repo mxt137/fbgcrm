@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MXT CRM - Hệ thống quản lý Khách hàng</title>
+  
+  <!-- Thư viện UI Tabler & SweetAlert2 & Supabase SDK -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Khung chứa màn hình Login -->
+  <div id="screen-login" style="display: none;"></div>
+
+  <!-- Khung chứa Ứng dụng sau khi đăng nhập -->
+  <div id="screen-app" class="page" style="display: none;">
+    <aside class="navbar navbar-vertical navbar-expand-lg navbar-dark">
+      <div class="container-fluid">
+        <h1 class="navbar-brand navbar-brand-autodark mt-lg-3">
+          <span><i class="ti ti-chart-pie-filled" style="color: #2ae1b2;"></i> MXT CRM</span>
+        </h1>
+        <div class="collapse navbar-collapse mt-lg-4" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3 w-100">
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-dashboard" onclick="switchPage('dashboard')">
+                <i class="ti ti-layout-dashboard me-2 fs-2 nav-link-icon"></i> Tổng quan
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-member" onclick="switchPage('member')">
+                <i class="ti ti-users me-2 fs-2 nav-link-icon"></i> Nhân sự
+              </a>
+            </li>
+            <!-- Các module Khách hàng, Marketing sẽ thêm vào đây sau -->
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <div class="page-wrapper">
+      <header id="global-topbar"></header>
+      <!-- Vùng chứa các Module động -->
+      <div id="module-dashboard" class="app-module" style="display: none;"></div>
+      <div id="module-member" class="app-module" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // 1. CẤU HÌNH SUPABASE GLOBAL
+    const SUPABASE_URL = 'THAY_URL_CUA_ANH_VAO_DAY';
+    const SUPABASE_KEY = 'THAY_ANON_KEY_CUA_ANH_VAO_DAY';
+    window.sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    window.currentUser = null;
+
+    // 2. HÀM ĐĂNG XUẤT
+    function forceLogout(msg = '') {
+      localStorage.removeItem('crm_session');
+      window.currentUser = null;
+      document.getElementById('screen-app').style.display = 'none';
+      document.getElementById('screen-login').style.display = 'flex';
+      if (msg) Swal.fire({ icon: 'warning', title: 'Phiên bản hết hạn', text: msg, confirmButtonColor: '#146654' });
+    }
+
+    // 3. XÁC THỰC PHIÊN LÀM VIỆC TỪ BỘ NHỚ LÊN DB
+    async function verifySystemAccess() {
+      const sessionStr = localStorage.getItem('crm_session');
+      if (!sessionStr) { forceLogout(); return false; }
+      const session = JSON.parse(sessionStr);
+
+      try {
+        const { data, error } = await window.sbClient.from('safe_members').select('*').eq('id', session.id).single();
+        if (error || !data || data.is_active === false) { forceLogout('Tài khoản đã bị khóa!'); return false; }
+        if (data.password_version !== session.password_version) { forceLogout('Mật khẩu đã đổi, vui lòng đăng nhập lại!'); return false; }
+        
+        window.currentUser = data;
+        localStorage.setItem('crm_session', JSON.stringify(data));
+        window.sbClient.rpc('record_login_time', { p_id: session.id }).then(() => {}); // Kích hoạt ngầm RPC
+        return true;
+      } catch (e) {
+        forceLogout(); return false;
+      }
+    }
+
+    // 4. HIỂN THỊ THANH TOPBAR CAO CẤP
+    function renderTopbar() {
+      const user = window.currentUser;
+      if (!user) return;
+      const topbarEl = document.getElementById('global-topbar'); 
+      if (topbarEl) {
+        topbarEl.className = "navbar navbar-expand-md d-none d-lg-flex d-print-none";
+        topbarEl.innerHTML = `
+          <div class="container-xl d-flex justify-content-between align-items-center w-100 py-2">
+            <div class="d-flex align-items-center gap-3">
+              <span class="badge badge-live-status d-flex align-items-center"><span class="status-dot status-dot-animated bg-success me-2"></span> Đang kết nối</span>
+            </div>
+            <div class="navbar-nav flex-row order-md-last align-items-center gap-3">
+              <div class="d-flex align-items-center p-1 pe-2" style="background: #f8fafc; border-radius: 50px; border: 1px solid #e2e8f0;">
+                <span class="avatar avatar-sm user-avatar-premium rounded-circle" style="background-image: url(https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundType=gradientLinear)"></span>
+                <div class="ps-2 text-start pe-2">
+                  <div class="fw-bold text-dark" style="font-size: 13px;">${user.full_name}</div>
+                  <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 9px;">${user.role}</div>
+                </div>
+              </div>
+              <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i>Thoát</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 5. BỘ ĐỊNH TUYẾN MODULE (SPA ROUTER)
+    async function switchPage(pageId) {
+      const isValid = await verifySystemAccess();
+      if (!isValid) return; 
+
+      const moduleDiv = document.getElementById('module-' + pageId);
+      
+      // Load mã nguồn HTML/JS nếu chưa có
+      if (moduleDiv.innerHTML.trim() === '') {
+        try {
+          const response = await fetch(`pages/page_${pageId}.html`);
+          if (response.ok) {
+            moduleDiv.innerHTML = await response.text();
+            // Kích hoạt Script nhúng
+            Array.from(moduleDiv.querySelectorAll("script")).forEach(oldScript => {
+              const newScript = document.createElement("script");
+              Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+              newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+          }
+        } catch (error) { console.error('Lỗi tải giao diện:', error); }
+      }
+
+      // Xử lý hiển thị
+      document.querySelectorAll('.app-module').forEach(el => el.style.display = 'none');
+      moduleDiv.style.display = 'block';
+      document.querySelectorAll('.nav-menu').forEach(el => el.classList.remove('active'));
+      const activeNavLink = document.getElementById('nav-' + pageId);
+      if(activeNavLink) activeNavLink.classList.add('active');
+
+      // Kích hoạt hàm khởi tạo của module đó
+      if (pageId === 'member' && typeof loadMembers === 'function') loadMembers();
+    }
+
+    // 6. KHỞI CHẠY APP
+    window.onload = async function() {
+      const loginRes = await fetch('pages/page_login.html');
+      const loginContainer = document.getElementById('screen-login');
+      loginContainer.innerHTML = await loginRes.text();
+      Array.from(loginContainer.querySelectorAll("script")).forEach(oldScript => {
+          const newScript = document.createElement("script");
+          newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+          oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+
+      const isValid = await verifySystemAccess();
+      if (isValid) {
+        document.getElementById('screen-login').style.display = 'none';
+        document.getElementById('screen-app').style.display = 'block';
+        renderTopbar();
+        switchPage('member'); // Tạm thời route thẳng vào Member vì chưa ráp Dashboard
+      } else {
+        document.getElementById('screen-login').style.display = 'flex';
+      }
+    };
+  </script>
+</body>
+</html>
