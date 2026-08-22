@@ -4,6 +4,8 @@
   .project-item { display: flex; align-items: center; padding: 8px; border-radius: 6px; transition: background 0.2s; }
   .project-item:hover { background: #f1f5f9; cursor: pointer; }
   .project-item input { width: 18px; height: 18px; cursor: pointer; accent-color: #146654; }
+  /* Thanh tìm kiếm dùng chung */
+  .filter-bar { background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--tblr-border-color); }
 </style>
 
 <div class="page-header d-print-none mt-4">
@@ -13,7 +15,7 @@
         <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
           <i class="ti ti-users me-2"></i> Quản lý nhân sự & Phân quyền
         </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Thiết lập phòng ban và dự án Marketing được phép xử lý</div>
+        <div class="text-muted mt-1" style="font-size: 13px;">Thiết lập phòng ban, quyền hạn và dự án được phép xử lý</div>
       </div>
       <div class="col-auto ms-auto d-print-none" id="adminActionsPanel">
         <button class="btn btn-brand d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modal-member" onclick="openMemberModal()">
@@ -26,6 +28,26 @@
 
 <div class="page-body">
   <div class="container-xl">
+    
+    <!-- THANH TÌM KIẾM VÀ LỌC -->
+    <div class="filter-bar row g-3 align-items-center">
+      <div class="col-md-5">
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
+          <input type="text" id="filterMemSearch" class="form-control fw-medium" placeholder="Tìm theo tên hoặc email..." onkeyup="applyMemberFilter()">
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-building text-muted"></i></span>
+          <select id="filterMemDept" class="form-select fw-medium" onchange="applyMemberFilter()">
+            <option value="all">Tất cả Phòng ban</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- BẢNG DỮ LIỆU -->
     <div class="card" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
       <div class="table-responsive">
         <table class="table table-vcenter card-table table-hover text-nowrap">
@@ -35,12 +57,13 @@
               <th>HỌ VÀ TÊN</th>
               <th>PHÒNG BAN / QUYỀN</th>
               <th>DỰ ÁN ĐƯỢC CẤP (MKT)</th>
+              <th>ĐĂNG NHẬP CUỐI</th>
               <th>TRẠNG THÁI</th>
               <th class="text-center admin-only-col">THAO TÁC</th>
             </tr>
           </thead>
           <tbody id="memberTableBody">
-            <tr><td colspan="6" class="text-center py-4">Đang kết nối cơ sở dữ liệu...</td></tr>
+            <tr><td colspan="7" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải dữ liệu...</td></tr>
           </tbody>
         </table>
       </div>
@@ -143,14 +166,17 @@
 
 <script>
   let globalMembers = [];
+  let filteredMembers = [];
   let globalProjects = [];
 
+  // 1. TẢI TOÀN BỘ DỮ LIỆU TỪ SERVER (1 LẦN DUY NHẤT)
   async function loadMembers() {
     if (window.currentUser && window.currentUser.role !== 'admin') {
-      document.getElementById('adminActionsPanel').style.display = 'none';
+      const panel = document.getElementById('adminActionsPanel');
+      if (panel) panel.style.display = 'none';
     }
 
-    // Load song song Nhân sự và Dự án
+    // Chạy đồng thời tải Nhân sự và Dự án
     const [resMembers, resProjects] = await Promise.all([
       window.sbClient.from('safe_members').select('*').order('created_at', { ascending: true }),
       window.sbClient.from('projects').select('project_name')
@@ -159,24 +185,94 @@
     if (resMembers.error) { Swal.fire('Lỗi', resMembers.error.message, 'error'); return; }
     
     globalMembers = resMembers.data;
-    if(resProjects.data) globalProjects = resProjects.data;
+    filteredMembers = [...globalMembers];
+    if (resProjects.data) globalProjects = resProjects.data;
 
-    updateDepartmentDatalist();
+    // Cập nhật Datalist và Filter Option cho Phòng ban
+    updateDepartmentOptions();
+    
+    // Gọi hàm render DOM
+    renderMemberTable();
+  }
 
+  // 2. TẠO TÙY CHỌN BỘ LỌC PHÒNG BAN & DATALIST
+  function updateDepartmentOptions() {
+    const listDatalist = document.getElementById('departmentList');
+    const filterSelect = document.getElementById('filterMemDept');
+    
+    listDatalist.innerHTML = '';
+    
+    const currentFilterValue = filterSelect.value;
+    let filterOptions = '<option value="all">Tất cả Phòng ban</option>';
+    
+    const depts = [...new Set(globalMembers.map(m => m.department).filter(Boolean))];
+    
+    depts.forEach(d => {
+      // Cho Datalist Modal
+      const option = document.createElement('option');
+      option.value = d;
+      listDatalist.appendChild(option);
+      // Cho Select Filter
+      filterOptions += `<option value="${d}">${d}</option>`;
+    });
+
+    filterSelect.innerHTML = filterOptions;
+    // Cố gắng giữ lại giá trị đang chọn nếu nó vẫn tồn tại
+    if (depts.includes(currentFilterValue)) {
+      filterSelect.value = currentFilterValue;
+    }
+  }
+
+  // 3. XỬ LÝ LỌC LOCAL (CLIENT-SIDE)
+  function applyMemberFilter() {
+    const searchVal = document.getElementById('filterMemSearch').value.toLowerCase().trim();
+    const deptVal = document.getElementById('filterMemDept').value;
+
+    filteredMembers = globalMembers.filter(m => {
+      const matchSearch = m.full_name.toLowerCase().includes(searchVal) || m.email.toLowerCase().includes(searchVal);
+      const matchDept = deptVal === 'all' || m.department === deptVal;
+      return matchSearch && matchDept;
+    });
+
+    renderMemberTable();
+  }
+
+  // 4. VẼ BẢNG DỮ LIỆU
+  function renderMemberTable() {
     const tbody = document.getElementById('memberTableBody');
     tbody.innerHTML = '';
 
-    globalMembers.forEach((member, index) => {
+    if (filteredMembers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không tìm thấy nhân sự phù hợp.</td></tr>';
+      return;
+    }
+
+    filteredMembers.forEach((member, index) => {
+      // Trạng thái tài khoản
       const roleBadge = member.role === 'admin' ? '<span class="badge bg-red text-white">ADMIN</span>' : (member.role === 'manager' ? '<span class="badge bg-orange text-white">LEADER</span>' : '<span class="badge bg-green text-white">SALES</span>');
       const statusBadge = member.is_active ? '<span class="text-success fw-bold"><i class="ti ti-point-filled"></i> Đang hoạt động</span>' : '<span class="text-danger fw-bold"><i class="ti ti-point-filled"></i> Bị khóa</span>';
       
+      // Khối Phòng ban
       const dept = member.department ? `<div class="mt-1 small fw-bold text-muted"><i class="ti ti-building me-1"></i>${member.department}</div>` : '';
       
+      // Khối Dự án được cấp
       let projHtml = '<span class="text-muted fst-italic">Chưa phân dự án</span>';
       if (member.allowed_projects && member.allowed_projects.length > 0) {
         projHtml = member.allowed_projects.map(p => `<span class="badge bg-blue-lt me-1 mb-1">${p}</span>`).join('');
       }
 
+      // Xử lý Cột Đăng nhập cuối
+      let timeStr = '<span class="text-muted">Chưa từng đăng nhập</span>';
+      if (member.last_login) {
+          const d = new Date(member.last_login);
+          const hh = d.getHours().toString().padStart(2, '0');
+          const mm = d.getMinutes().toString().padStart(2, '0');
+          const dd = d.getDate().toString().padStart(2, '0');
+          const m0 = (d.getMonth() + 1).toString().padStart(2, '0');
+          timeStr = `<i class="ti ti-history text-muted me-1"></i> ${hh}:${mm}, ${dd}/${m0}/${d.getFullYear()}`;
+      }
+
+      // Nút Thao tác (Chỉ Admin)
       let actionColumn = '';
       if (window.currentUser && window.currentUser.role === 'admin') {
         const toggleBtn = member.is_active
@@ -197,11 +293,12 @@
       tr.innerHTML = `
         <td class="text-center text-muted">${index + 1}</td>
         <td>
-          <div class="fw-bold" style="font-size: 14px;">${member.full_name}</div>
+          <div class="fw-bold text-dark" style="font-size: 14px;">${member.full_name}</div>
           <div class="text-muted small">${member.email}</div>
         </td>
         <td>${roleBadge} ${dept}</td>
         <td style="max-width: 250px; white-space: normal;">${projHtml}</td>
+        <td class="text-muted" style="font-size: 13px;">${timeStr}</td>
         <td>${statusBadge}</td>
         ${actionColumn}
       `;
@@ -213,19 +310,7 @@
     }
   }
 
-  // Tự động gom các Phòng ban đang có để làm Suggestion DataList
-  function updateDepartmentDatalist() {
-    const list = document.getElementById('departmentList');
-    list.innerHTML = '';
-    const depts = [...new Set(globalMembers.map(m => m.department).filter(Boolean))];
-    depts.forEach(d => {
-      const option = document.createElement('option');
-      option.value = d;
-      list.appendChild(option);
-    });
-  }
-
-  // Khởi tạo các Checkbox chọn Dự án
+  // Khởi tạo Checkbox chọn Dự án
   function renderProjectCheckboxes(selectedProjects = []) {
     const container = document.getElementById('projectCheckboxList');
     container.innerHTML = '';
@@ -244,6 +329,7 @@
     });
   }
 
+  // 5. MỞ MODAL THÊM / SỬA 
   function openMemberModal(id = null) {
     document.getElementById('memberForm').reset();
     document.getElementById('memberId').value = '';
@@ -269,11 +355,11 @@
     }
   }
 
+  // 6. LƯU THÔNG TIN BẢO MẬT QUA RPC
   async function saveMember() {
     const btn = document.getElementById('btnSaveMember');
     btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...';
     
-    // Thu thập các dự án đã được tick
     const checkedBoxes = document.querySelectorAll('input[name="allowed_proj"]:checked');
     const allowedProjects = Array.from(checkedBoxes).map(cb => cb.value);
 
@@ -291,9 +377,11 @@
     try {
       const { error } = await window.sbClient.rpc('admin_save_member', payload);
       if (error) throw new Error(error.message);
+      
       document.getElementById('btnCloseMemberModal').click();
       Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
-      loadMembers();
+      
+      await loadMembers(); // Reload lại data và vẽ lại bảng
     } catch (err) { 
       Swal.fire('Lỗi', err.message, 'error'); 
     } finally { 
@@ -301,11 +389,18 @@
     }
   }
 
+  // 7. KHÓA TÀI KHOẢN QUA RPC
   function toggleMemberStatus(id, activate) {
-    Swal.fire({ title: 'Xác nhận?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý' }).then(async (res) => {
+    Swal.fire({ title: 'Xác nhận?', text: activate ? "Mở khóa tài khoản?" : "Khóa tài khoản này?", icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý' })
+    .then(async (res) => {
       if (res.isConfirmed) {
-        const { error } = await window.sbClient.rpc('admin_toggle_member', { p_admin_id: window.currentUser.id, p_target_id: id, p_is_active: activate });
-        if (error) Swal.fire('Lỗi', error.message, 'error'); else loadMembers();
+        const { error } = await window.sbClient.rpc('admin_toggle_member', { 
+          p_admin_id: window.currentUser.id, 
+          p_target_id: id, 
+          p_is_active: activate 
+        });
+        if (error) Swal.fire('Lỗi', error.message, 'error'); 
+        else loadMembers();
       }
     });
   }
