@@ -3,155 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FBG CRM - Hệ thống Quản lý Chắm sóc Khách hàng</title>
+  <link rel="icon" type="image/png" href="crm.png">
+  <title>MXT CRM - Hệ Thống Quản Trị & Khai Thác Data</title>
   
-  <!-- Thư viện UI Tabler & SweetAlert2 & Supabase SDK -->
+  <!-- CDN Thư viện UI & Core -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
+  <!-- Nạp CSS Toàn cục -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Khung chứa màn hình Login -->
+  <!-- 1. MÀN HÌNH ĐĂNG NHẬP -->
   <div id="screen-login" style="display: none;"></div>
 
-  <!-- Khung chứa Ứng dụng sau khi đăng nhập -->
+  <!-- 2. MÀN HÌNH ỨNG DỤNG CHÍNH -->
   <div id="screen-app" class="page" style="display: none;">
+    
+    <!-- SIDEBAR VERTICAL -->
     <aside class="navbar navbar-vertical navbar-expand-lg navbar-dark">
       <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Mở menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
         <h1 class="navbar-brand navbar-brand-autodark mt-lg-3">
-          <span><i class="ti ti-chart-pie-filled" style="color: #2ae1b2;"></i> FBG CRM</span>
+          <span style="font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">
+            <i class="ti ti-chart-pie-filled" style="color: #2ae1b2;"></i> MXT CRM
+          </span>
         </h1>
         <div class="collapse navbar-collapse mt-lg-4" id="sidebar-menu">
           <ul class="navbar-nav pt-lg-3 w-100">
             <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-dashboard" onclick="switchPage('dashboard')">
-                <i class="ti ti-layout-dashboard me-2 fs-2 nav-link-icon"></i> Tổng quan
+              <a class="nav-link nav-menu active" id="nav-dashboard" onclick="switchPage('dashboard')" style="cursor: pointer;">
+                <i class="ti ti-layout-dashboard me-2 fs-2 nav-link-icon"></i> Bảng điều khiển
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-member" onclick="switchPage('member')">
-                <i class="ti ti-users me-2 fs-2 nav-link-icon"></i> Nhân sự
+              <a class="nav-link nav-menu" id="nav-member" onclick="switchPage('member')" style="cursor: pointer;">
+                <i class="ti ti-users me-2 fs-2 nav-link-icon"></i> Nhân sự & Quyền
               </a>
             </li>
-            <!-- Các module Khách hàng, Marketing sẽ thêm vào đây sau -->
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-marketing" onclick="switchPage('marketing')" style="cursor: pointer;">
+                <i class="ti ti-headset me-2 fs-2 nav-link-icon"></i> Kho Marketing
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-khachhang" onclick="switchPage('khachhang')" style="cursor: pointer;">
+                <i class="ti ti-address-book me-2 fs-2 nav-link-icon"></i> Khách hàng
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-duan" onclick="switchPage('duan')" style="cursor: pointer;">
+                <i class="ti ti-building-skyscraper me-2 fs-2 nav-link-icon"></i> Dự án
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-rohang" onclick="switchPage('rohang')" style="cursor: pointer;">
+                <i class="ti ti-home-check me-2 fs-2 nav-link-icon"></i> Rổ hàng thuê
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-hopdong" onclick="switchPage('hopdong')" style="cursor: pointer;">
+                <i class="ti ti-file-certificate me-2 fs-2 nav-link-icon"></i> Hợp đồng
+              </a>
+            </li>
           </ul>
         </div>
       </div>
     </aside>
 
+    <!-- WRAPPER NỘI DUNG ĐỘNG -->
     <div class="page-wrapper">
       <header id="global-topbar"></header>
-      <!-- Vùng chứa các Module động -->
+      
+      <!-- CÁC MODULE CON HỨNG HTML TỪ THƯ MỤC PAGES/ -->
       <div id="module-dashboard" class="app-module" style="display: none;"></div>
       <div id="module-member" class="app-module" style="display: none;"></div>
+      <div id="module-marketing" class="app-module" style="display: none;"></div>
+      <div id="module-khachhang" class="app-module" style="display: none;"></div>
+      <div id="module-duan" class="app-module" style="display: none;"></div>
+      <div id="module-rohang" class="app-module" style="display: none;"></div>
+      <div id="module-hopdong" class="app-module" style="display: none;"></div>
     </div>
   </div>
 
+  <!-- LOGIC HỆ THỐNG GLOBAL -->
   <script>
-    // 1. CẤU HÌNH SUPABASE GLOBAL
+    // 1. CẤU HÌNH SUPABASE CLIENT TOÀN CỤC
     const SUPABASE_URL = 'https://wsyjzfomzecmjuktzvho.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_21MzjJvE1aVUJWyW3HCz6A_hcUprSPT';
     window.sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     window.currentUser = null;
 
-    // 2. HÀM ĐĂNG XUẤT
+    // 2. ÉP ĐĂNG XUẤT AN TOÀN
     function forceLogout(msg = '') {
       localStorage.removeItem('crm_session');
       window.currentUser = null;
+      document.querySelectorAll('.app-module').forEach(el => el.style.display = 'none');
       document.getElementById('screen-app').style.display = 'none';
       document.getElementById('screen-login').style.display = 'flex';
+      
+      const emailEl = document.getElementById('loginEmail');
+      const passEl = document.getElementById('loginPass');
+      if (emailEl) emailEl.value = '';
+      if (passEl) passEl.value = '';
+      
       if (msg) Swal.fire({ icon: 'warning', title: 'Phiên bản hết hạn', text: msg, confirmButtonColor: '#146654' });
     }
 
-    // 3. XÁC THỰC PHIÊN LÀM VIỆC TỪ BỘ NHỚ LÊN DB
+    // 3. XÁC THỰC PHIÊN LÀM VIỆC TỪ BỘ NHỚ
     async function verifySystemAccess() {
       const sessionStr = localStorage.getItem('crm_session');
       if (!sessionStr) { forceLogout(); return false; }
+
       const session = JSON.parse(sessionStr);
 
       try {
-        const { data, error } = await window.sbClient.from('safe_members').select('*').eq('id', session.id).single();
-        if (error || !data || data.is_active === false) { forceLogout('Tài khoản đã bị khóa!'); return false; }
-        if (data.password_version !== session.password_version) { forceLogout('Mật khẩu đã đổi, vui lòng đăng nhập lại!'); return false; }
+        const { data, error } = await window.sbClient.from('safe_members')
+          .select('*')
+          .eq('id', session.id)
+          .single();
+          
+        if (error || !data || data.is_active === false) { forceLogout('Tài khoản của bạn đã bị vô hiệu hóa!'); return false; }
+        if (data.password_version !== session.password_version) { forceLogout('Mật khẩu đã thay đổi. Vui lòng đăng nhập lại!'); return false; }
         
         window.currentUser = data;
         localStorage.setItem('crm_session', JSON.stringify(data));
-        window.sbClient.rpc('record_login_time', { p_id: session.id }).then(() => {}); // Kích hoạt ngầm RPC
+
+        // Cập nhật ngầm giờ truy cập
+        window.sbClient.rpc('record_login_time', { p_id: session.id }).then(() => {});
         return true;
       } catch (e) {
-        forceLogout(); return false;
+        forceLogout();
+        return false;
       }
     }
 
-    // 4. HIỂN THỊ THANH TOPBAR CAO CẤP
+    // 4. RENDER TOPBAR
     function renderTopbar() {
       const user = window.currentUser;
       if (!user) return;
+      
+      let loginTimeStr = "Đang kết nối...";
+      if (user.last_login) {
+        let safeDateStr = user.last_login;
+        if (!safeDateStr.includes('Z') && !safeDateStr.includes('+')) safeDateStr += 'Z';
+        const dateObj = new Date(safeDateStr);
+        const hh = dateObj.getHours().toString().padStart(2, '0');
+        const mm = dateObj.getMinutes().toString().padStart(2, '0');
+        const dd = dateObj.getDate().toString().padStart(2, '0');
+        const m0 = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        loginTimeStr = `${hh}:${mm} ngày ${dd}/${m0}/${dateObj.getFullYear()}`;
+      }
+
       const topbarEl = document.getElementById('global-topbar'); 
       if (topbarEl) {
         topbarEl.className = "navbar navbar-expand-md d-none d-lg-flex d-print-none";
         topbarEl.innerHTML = `
           <div class="container-xl d-flex justify-content-between align-items-center w-100 py-2">
             <div class="d-flex align-items-center gap-3">
-              <span class="badge badge-live-status d-flex align-items-center"><span class="status-dot status-dot-animated bg-success me-2"></span> Đang kết nối</span>
+              <span class="badge badge-live-status d-flex align-items-center gap-1.5"><span class="status-dot status-dot-animated bg-success me-1"></span> Hệ thống Live</span>
+              <div class="text-muted d-flex align-items-center gap-1" style="font-size: 13px; font-weight: 500;">
+                <i class="ti ti-clock-share text-success fs-2 me-1"></i> 
+                Lần đăng nhập gần nhất: <span class="text-dark fw-bold" style="background: rgba(20,102,84,0.06); padding: 2px 6px; border-radius: 4px;">${loginTimeStr}</span>
+              </div>
             </div>
             <div class="navbar-nav flex-row order-md-last align-items-center gap-3">
               <div class="d-flex align-items-center p-1 pe-2" style="background: #f8fafc; border-radius: 50px; border: 1px solid #e2e8f0;">
-                <span class="avatar avatar-sm user-avatar-premium rounded-circle" style="background-image: url(https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundType=gradientLinear)"></span>
-                <div class="ps-2 text-start pe-2">
-                  <div class="fw-bold text-dark" style="font-size: 13px;">${user.full_name}</div>
+                <span class="avatar avatar-sm user-avatar-premium rounded-circle" style="background-image: url(https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundType=gradientLinear&fontSize=45)"></span>
+                <div class="d-none d-xl-block ps-2 text-start pe-2">
+                  <div class="fw-bold text-dark" style="font-size: 13px; letter-spacing: -0.2px; line-height: 1;">${user.full_name}</div>
                   <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 0.8px;">${user.role} ${user.department ? '- ' + user.department : ''}</div>
                 </div>
               </div>
-              <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i>Thoát</button>
+              <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 shadow-sm fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i> Đăng xuất</button>
             </div>
           </div>
         `;
       }
     }
 
-    // 5. BỘ ĐỊNH TUYẾN MODULE (SPA ROUTER)
+    // 5. BỘ ĐỊNH TUYẾN CHUYỂN MODULE (SPA ROUTER)
     async function switchPage(pageId) {
       const isValid = await verifySystemAccess();
       if (!isValid) return; 
 
+      // Tự động đóng menu trên Mobile
+      const sidebarMenu = document.getElementById('sidebar-menu');
+      const navbarToggler = document.querySelector('.navbar-toggler');
+      if (window.innerWidth < 992 && sidebarMenu && sidebarMenu.classList.contains('show')) {
+          navbarToggler.click();
+      }
+
       const moduleDiv = document.getElementById('module-' + pageId);
+      if (!moduleDiv) return;
       
-      // Load mã nguồn HTML/JS nếu chưa có
+      // Load file HTML tương ứng từ thư mục pages/
       if (moduleDiv.innerHTML.trim() === '') {
         try {
           const response = await fetch(`pages/page_${pageId}.html`);
           if (response.ok) {
             moduleDiv.innerHTML = await response.text();
-            // Kích hoạt Script nhúng
+            
+            // Ép trình duyệt thực thi các thẻ Script được nạp động
             Array.from(moduleDiv.querySelectorAll("script")).forEach(oldScript => {
               const newScript = document.createElement("script");
               Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
               newScript.appendChild(document.createTextNode(oldScript.innerHTML));
               oldScript.parentNode.replaceChild(newScript, oldScript);
             });
+          } else {
+            console.error(`Không tìm thấy pages/page_${pageId}.html`);
           }
-        } catch (error) { console.error('Lỗi tải giao diện:', error); }
+        } catch (error) { console.error('Lỗi tải giao diện module:', error); }
       }
 
-      // Xử lý hiển thị
+      // Ẩn các module khác, chỉ hiện module đang chọn
       document.querySelectorAll('.app-module').forEach(el => el.style.display = 'none');
       moduleDiv.style.display = 'block';
+
+      // Đánh dấu menu active
       document.querySelectorAll('.nav-menu').forEach(el => el.classList.remove('active'));
       const activeNavLink = document.getElementById('nav-' + pageId);
       if(activeNavLink) activeNavLink.classList.add('active');
 
-      // Kích hoạt hàm khởi tạo của module đó
+      // Kích hoạt hàm khởi tạo dữ liệu của từng Module
+      if (pageId === 'dashboard' && typeof loadDashboardStats === 'function') loadDashboardStats();
       if (pageId === 'member' && typeof loadMembers === 'function') loadMembers();
+      if (pageId === 'marketing' && typeof loadMarketingModule === 'function') loadMarketingModule();
+      if (pageId === 'khachhang' && typeof loadCustomers === 'function') loadSalesList().then(() => loadCustomers());
+      if (pageId === 'duan' && typeof loadProjects === 'function') loadProjects();
+      if (pageId === 'rohang' && typeof loadProperties === 'function') loadProperties();
+      if (pageId === 'hopdong' && typeof loadContracts === 'function') loadContracts();
     }
 
-    // 6. KHỞI CHẠY APP
+    // 6. KHỞI CHẠY HỆ THỐNG
     window.onload = async function() {
+      // 1. Tải giao diện Login
       const loginRes = await fetch('pages/page_login.html');
       const loginContainer = document.getElementById('screen-login');
       loginContainer.innerHTML = await loginRes.text();
@@ -161,14 +255,16 @@
           oldScript.parentNode.replaceChild(newScript, oldScript);
       });
 
+      // 2. Xác thực phiên làm việc
       const isValid = await verifySystemAccess();
       if (isValid) {
         document.getElementById('screen-login').style.display = 'none';
         document.getElementById('screen-app').style.display = 'block';
         renderTopbar();
-        switchPage('member'); // Tạm thời route thẳng vào Member vì chưa ráp Dashboard
+        switchPage('dashboard');
       } else {
         document.getElementById('screen-login').style.display = 'flex';
+        document.getElementById('screen-app').style.display = 'none';
       }
     };
   </script>
