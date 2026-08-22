@@ -589,14 +589,47 @@
   }
 
   // 6. CHUYỂN TEAM WORK
-  function transferCustomer(id) {
-    Swal.fire({
-      title: 'Chuyển sang Team Work',
-      text: "Chức năng copy khách hàng này sang không gian làm việc chung (Team Work) sẽ được mở trong bản cập nhật tới!",
-      icon: 'info',
+  async function transferCustomer(id) {
+    // 1. Lấy danh sách team của User để hiện popup
+    const { data: teams } = await window.sbClient.from('team_members').select('team_id, teams(id, name)').eq('member_id', window.currentUser.id);
+    
+    if (!teams || teams.length === 0) {
+      Swal.fire('Lưu ý', 'Bạn chưa tham gia Team nào. Hãy vào trang Team Work tạo 1 Team trước nhé!', 'warning');
+      return;
+    }
+
+    let inputOptions = {};
+    teams.forEach(t => { inputOptions[t.teams.id] = t.teams.name; });
+
+    // 2. Mở Popup chọn Team
+    const { value: selectedTeamId } = await Swal.fire({
+      title: 'Chuyển vào Team Work',
+      text: 'Chọn Team bạn muốn đưa khách hàng này vào thảo luận:',
+      input: 'select',
+      inputOptions: inputOptions,
+      inputPlaceholder: '-- Chọn Team --',
+      showCancelButton: true,
+      confirmButtonText: 'Đẩy vào Team',
       confirmButtonColor: '#146654',
-      confirmButtonText: 'Đã hiểu'
+      inputValidator: (value) => { if (!value) return 'Vui lòng chọn 1 Team!' }
     });
+
+    if (selectedTeamId) {
+      // 3. Gọi RPC chuyển data
+      try {
+        const { error } = await window.sbClient.rpc('transfer_to_team', {
+          p_customer_id: id,
+          p_team_id: selectedTeamId,
+          p_user_id: window.currentUser.id
+        });
+        if (error) throw error;
+
+        Swal.fire('Thành công', 'Khách hàng đã được copy sang Team Work!', 'success');
+        // loadCustomers(); // (Bật dòng này nếu anh Uncomment lệnh Delete ở DB để nó ẩn khách đi)
+      } catch (err) {
+        Swal.fire('Lỗi', err.message, 'error');
+      }
+    }
   }
 
   // 7. XÓA KHÁCH HÀNG (QUYỀN MỞ CHO TẤT CẢ, VÌ AI CŨNG CHỈ THẤY KHÁCH CỦA MÌNH)
