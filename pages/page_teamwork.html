@@ -25,7 +25,7 @@
         <select id="teamSelector" class="form-select fw-bold" style="min-width: 200px; color: #146654;" onchange="changeActiveTeam()">
           <option value="">-- Chọn Team của bạn --</option>
         </select>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-manage-team" onclick="openManageTeamModal()">
+        <button class="btn btn-outline-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modal-manage-team" onclick="openManageTeamModal()">
           <i class="ti ti-settings me-2"></i> Quản lý Team
         </button>
       </div>
@@ -132,28 +132,59 @@
 <!-- MODAL: QUẢN LÝ TEAM VÀ THÊM THÀNH VIÊN -->
 <!-- ============================================== -->
 <div class="modal modal-blur fade" id="modal-manage-team" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content shadow-lg" style="border-radius: 12px;">
       <div class="modal-header" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); color: white;">
-        <h5 class="modal-title fw-bold"><i class="ti ti-settings me-2"></i> Quản lý Team</h5>
+        <h5 class="modal-title fw-bold"><i class="ti ti-settings me-2"></i> Bảng Quản Trị Team Work</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <h4 class="fw-bold text-primary mb-3">Tạo Team Mới</h4>
-        <div class="d-flex gap-2 mb-4">
-          <input type="text" id="newTeamName" class="form-control" placeholder="Tên Team (VD: Biệt đội chốt sale...)">
-          <button class="btn btn-brand" onclick="createNewTeam()"><i class="ti ti-plus"></i></button>
+      <div class="modal-body p-4 p-md-5">
+        
+        <!-- PHẦN 1: TẠO TEAM MỚI -->
+        <h4 class="fw-bold" style="color: #146654;"><i class="ti ti-circle-plus me-2"></i>1. Khởi Tạo Team Mới</h4>
+        <div class="d-flex gap-2 mb-2">
+          <input type="text" id="newTeamName" class="form-control form-control-lg" placeholder="Nhập tên Team (VD: Biệt đội chốt sale...)">
+          <button class="btn btn-brand" onclick="createNewTeam()"><i class="ti ti-plus me-2"></i>Tạo Team</button>
         </div>
 
-        <hr>
+        <div id="manageTeamSection" style="display: none;">
+          <hr class="my-4" style="border-color: #cbd5e1;">
+          
+          <!-- PHẦN 2: QUẢN LÝ THÀNH VIÊN TRONG TEAM HIỆN TẠI -->
+          <h4 class="fw-bold mb-3" style="color: #146654;" id="manageTeamTitle"><i class="ti ti-users me-2"></i>2. Quản Lý Thành Viên Team</h4>
+          
+          <div class="row g-4">
+            <!-- Cột Trái: DS Thành viên -->
+            <div class="col-md-6">
+              <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">THÀNH VIÊN TRONG TEAM HIỆN TẠI</label>
+              <div class="table-responsive border rounded bg-white" style="max-height: 200px; overflow-y: auto;">
+                <table class="table table-vcenter table-hover m-0 text-nowrap">
+                  <tbody id="currentTeamMembersList">
+                    <tr><td class="text-center py-3 text-muted">Đang tải...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-        <h4 class="fw-bold text-primary mb-3 mt-4">Thêm thành viên vào Team hiện tại</h4>
-        <div class="d-flex gap-2">
-          <select id="selectMemberToAdd" class="form-select">
-            <option value="">-- Đang tải nhân sự --</option>
-          </select>
-          <button class="btn btn-success" onclick="addMemberToTeam()"><i class="ti ti-user-plus"></i> Thêm</button>
+            <!-- Cột Phải: Form Thêm người -->
+            <div class="col-md-6">
+              <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">THÊM THÀNH VIÊN MỚI</label>
+              <div class="d-flex flex-column gap-2">
+                <select id="selectMemberToAdd" class="form-select fw-medium">
+                  <option value="">-- Đang tải nhân sự --</option>
+                </select>
+                <button class="btn btn-success" onclick="addMemberToTeam()"><i class="ti ti-user-plus me-2"></i> Bổ sung vào Team</button>
+              </div>
+              <div class="text-muted mt-2" style="font-size: 11px;">* Danh sách trên đã tự động ẩn đi tài khoản System và những nhân sự đã có mặt trong Team.</div>
+            </div>
+          </div>
+
         </div>
+
+        <div id="noTeamSelectedWarning" class="alert alert-info mt-4 mb-0" style="display: none; border-radius: 8px;">
+          <i class="ti ti-info-circle me-2"></i> Mẹo: Hãy chọn một Team ở màn hình bên ngoài để quản lý thành viên nhé!
+        </div>
+
       </div>
     </div>
   </div>
@@ -229,19 +260,15 @@
   }
 
   async function fetchAllMembers() {
-    const { data } = await window.sbClient.from('safe_members').select('id, full_name').eq('is_active', true);
+    // ẨN USER SYSTEM KHỎI DANH SÁCH BẰNG LỆNH .neq('role', 'system')
+    const { data } = await window.sbClient.from('safe_members').select('id, full_name').eq('is_active', true).neq('role', 'system');
     if(data) {
       allMembers = data;
-      let opts = '<option value="">-- Chọn nhân sự --</option>';
-      data.forEach(m => opts += `<option value="${m.id}">${m.full_name}</option>`);
-      document.getElementById('selectMemberToAdd').innerHTML = opts;
     }
   }
 
-  // Lấy các team mà User đang tham gia
   async function fetchMyTeams() {
     const myId = window.currentUser.id;
-    // Dùng query join qua bảng trung gian team_members
     const { data, error } = await window.sbClient
       .from('team_members')
       .select('team_id, teams(id, name)')
@@ -249,7 +276,7 @@
 
     const selector = document.getElementById('teamSelector');
     if (error || !data || data.length === 0) {
-      selector.innerHTML = '<option value="">-- Bạn chưa có Team --</option>';
+      selector.innerHTML = '<option value="">-- Bạn chưa tham gia Team nào --</option>';
       return;
     }
 
@@ -262,15 +289,70 @@
   // =====================================
   // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM NGƯỜI)
   // =====================================
+  
+  // Hàm tải Modal Quản lý Team
+  async function openManageTeamModal() {
+    const manageSection = document.getElementById('manageTeamSection');
+    const warningSection = document.getElementById('noTeamSelectedWarning');
+    const tbody = document.getElementById('currentTeamMembersList');
+    const selectAdd = document.getElementById('selectMemberToAdd');
+
+    // Nếu người dùng chưa chọn Team thì ẩn khu vực quản lý
+    if (!currentTeamId) {
+      manageSection.style.display = 'none';
+      warningSection.style.display = 'block';
+      return;
+    }
+
+    manageSection.style.display = 'block';
+    warningSection.style.display = 'none';
+    
+    const teamName = document.getElementById('teamSelector').options[document.getElementById('teamSelector').selectedIndex].text;
+    document.getElementById('manageTeamTitle').innerHTML = `<i class="ti ti-users me-2"></i>2. Quản Lý Team: <span class="text-danger">${teamName}</span>`;
+
+    tbody.innerHTML = '<tr><td class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary"></span></td></tr>';
+
+    // Lấy những người ĐANG CÓ trong Team (Join 2 bảng team_members và members)
+    const { data, error } = await window.sbClient
+      .from('team_members')
+      .select('member_id, members!inner(full_name)')
+      .eq('team_id', currentTeamId);
+    
+    if (error) { tbody.innerHTML = '<tr><td class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
+
+    const currentMemberIds = data.map(d => d.member_id);
+
+    // Vẽ danh sách thành viên hiện tại
+    tbody.innerHTML = '';
+    data.forEach(m => {
+      tbody.innerHTML += `
+        <tr>
+          <td class="fw-bold text-dark"><i class="ti ti-user me-2 text-muted"></i>${m.members.full_name}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="removeMemberFromTeam('${m.member_id}')" title="Xóa khỏi Team">
+              <i class="ti ti-x"></i> Gỡ
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    // Vẽ danh sách thả xuống thêm người (ĐÃ LOẠI TRỪ NHỮNG NGƯỜI ĐANG CÓ)
+    selectAdd.innerHTML = '<option value="">-- Chọn nhân sự để thêm --</option>';
+    allMembers.forEach(m => {
+      if (!currentMemberIds.includes(m.id)) {
+        selectAdd.innerHTML += `<option value="${m.id}">${m.full_name}</option>`;
+      }
+    });
+  }
+
   async function createNewTeam() {
     const name = document.getElementById('newTeamName').value.trim();
     if (!name) return;
     try {
-      // 1. Tạo Team
       const { data: team, error: err1 } = await window.sbClient.from('teams').insert([{ name: name, created_by: window.currentUser.id }]).select().single();
       if (err1) throw err1;
       
-      // 2. Gán người tạo vào Team
       const { error: err2 } = await window.sbClient.from('team_members').insert([{ team_id: team.id, member_id: window.currentUser.id }]);
       if (err2) throw err2;
 
@@ -281,19 +363,33 @@
   }
 
   async function addMemberToTeam() {
-    const teamId = document.getElementById('teamSelector').value;
     const memberId = document.getElementById('selectMemberToAdd').value;
-    if (!teamId) { Swal.fire('Lưu ý', 'Hãy chọn Team ở bên ngoài trước khi thêm người!', 'warning'); return; }
-    if (!memberId) return;
+    if (!memberId) { Swal.fire('Lưu ý', 'Hãy chọn 1 thành viên!', 'warning'); return; }
 
     try {
-      const { error } = await window.sbClient.from('team_members').insert([{ team_id: teamId, member_id: memberId }]);
-      if (error) {
-        if(error.code === '23505') throw new Error('Thành viên này đã có trong Team!');
-        throw error;
-      }
-      Swal.fire({ icon: 'success', title: 'Đã thêm vào Team', timer: 1500, showConfirmButton: false });
+      const { error } = await window.sbClient.from('team_members').insert([{ team_id: currentTeamId, member_id: memberId }]);
+      if (error) throw error;
+      
+      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thêm người vào Team', timer: 1500, showConfirmButton: false });
+      openManageTeamModal(); // Tải lại 2 danh sách trong Modal
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
+  }
+
+  async function removeMemberFromTeam(memberId) {
+    Swal.fire({
+      title: 'Xóa nhân sự khỏi Team?',
+      text: "Thành viên này sẽ không còn thấy dữ liệu của Team nữa.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Đồng ý xóa'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        await window.sbClient.from('team_members').delete().match({ team_id: currentTeamId, member_id: memberId });
+        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã xóa khỏi Team', timer: 1500, showConfirmButton: false });
+        openManageTeamModal(); // Tải lại 2 danh sách trong Modal
+      }
+    });
   }
 
   // =====================================
@@ -305,7 +401,6 @@
       document.getElementById('emptyWorkspace').style.display = 'none';
       document.getElementById('teamWorkWorkspace').style.display = 'flex';
       
-      // Reset cột phải
       activeCustomerId = null;
       document.getElementById('chatTitle').innerHTML = '<i class="ti ti-messages me-2 text-primary"></i>Khu vực Thảo luận';
       document.getElementById('chatSubtitle').innerText = 'Hãy chọn một khách hàng bên trái để xem logs';
@@ -368,11 +463,9 @@
     activeCustomerId = cusData.id;
     currentCustomerData = cusData;
 
-    // Đổi màu dòng
     document.querySelectorAll('.customer-row').forEach(el => el.classList.remove('active'));
     document.getElementById(`tc-row-${cusData.id}`).classList.add('active');
 
-    // Mở khóa Form Chat
     document.getElementById('chatTitle').innerHTML = `<i class="ti ti-user text-primary me-2"></i>${cusData.full_name}`;
     document.getElementById('chatSubtitle').innerText = `${cusData.phone} | Nhu cầu: ${cusData.demand || '-'}`;
     document.getElementById('chatInput').disabled = false;
@@ -380,7 +473,6 @@
     document.getElementById('chatIsProposal').checked = false;
     document.getElementById('btnSendChat').disabled = false;
 
-    // XỬ LÝ BÔI ĐỎ ĐỀ XUẤT NẾU CÓ
     const alertBox = document.getElementById('proposalAlertBox');
     if (cusData.proposal && cusData.proposal.trim() !== '') {
       alertBox.style.display = 'block';
@@ -406,7 +498,6 @@
       return;
     }
 
-    // Hiển thị từ dưới lên (cũ trên, mới dưới)
     data.reverse().forEach(log => {
       const isMe = log.member_id === window.currentUser.id;
       const mem = allMembers.find(m => m.id === log.member_id);
@@ -415,7 +506,6 @@
       
       const div = document.createElement('div');
       
-      // Phân loại style log
       if (!log.member_id) {
         div.className = 'chat-message system text-center mx-auto';
         div.style.maxWidth = '80%';
@@ -437,7 +527,6 @@
       box.appendChild(div);
     });
 
-    // Cuộn xuống cuối cùng
     box.scrollTop = box.scrollHeight;
   }
 
@@ -454,19 +543,16 @@
     try {
       const vnTime = new Date().toISOString();
 
-      // Nếu tick là đề xuất -> Phải update cả bảng Team Customer để báo động đỏ
       if (isProposal) {
         await window.sbClient.from('team_customers').update({ 
           proposal: content, updated_at: vnTime 
         }).eq('id', activeCustomerId);
         
-        // Update UI Alert tức thì
         document.getElementById('proposalAlertBox').style.display = 'block';
         document.getElementById('proposalAlertText').innerText = content;
-        currentCustomerData.proposal = content; // Sync local
+        currentCustomerData.proposal = content; 
       }
 
-      // Ghi log
       await window.sbClient.from('team_logs').insert([{
         team_customer_id: activeCustomerId,
         member_id: window.currentUser.id,
@@ -491,7 +577,6 @@
     document.getElementById('tcId').value = id || '';
     
     if (id) {
-      // Lấy từ DB hoặc cache (tạm fetch nhanh từ DB cho chuẩn)
       const { data } = await window.sbClient.from('team_customers').select('*').eq('id', id).single();
       if(data) {
         document.getElementById('tcName').value = data.full_name;
@@ -529,7 +614,6 @@
     try {
       if (id) {
         await window.sbClient.from('team_customers').update(payload).eq('id', id);
-        // Bắn 1 log system nhẹ báo đã update
         await window.sbClient.from('team_logs').insert([{
           team_customer_id: id, content: `${window.currentUser.full_name} đã cập nhật thông tin / đề xuất.`, created_at: vnTime
         }]);
@@ -545,7 +629,7 @@
       Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
       
       await loadTeamCustomers();
-      if(id && id === activeCustomerId) selectTeamCustomer({id: id, ...payload}); // Cập nhật luôn màn hình chat nếu đang mở
+      if(id && id === activeCustomerId) selectTeamCustomer({id: id, ...payload}); 
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy me-2"></i> Lưu dữ liệu'; }
   }
