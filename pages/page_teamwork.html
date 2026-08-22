@@ -11,6 +11,14 @@
   
   .proposal-alert { background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2); }
   .log-line { margin-bottom: 4px; }
+
+  /* Hiệu ứng nhấp nháy cho báo hiệu có Log mới */
+  @keyframes pulseRed {
+    0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+  }
+  .pulse-animation { animation: pulseRed 2s infinite; }
 </style>
 
 <div class="page-header d-print-none mt-4">
@@ -47,21 +55,25 @@
               <i class="ti ti-plus me-1"></i> Thêm Khách
             </button>
           </div>
-          <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
+          <div class="table-responsive" style="max-height: 590px; overflow-y: auto; border-bottom: 1px solid #e2e8f0;">
             <table class="table table-vcenter table-hover text-nowrap m-0">
               <thead style="position: sticky; top: 0; z-index: 1; background: #fff;">
                 <tr>
+                  <th class="text-center w-1">STT</th>
                   <th class="ps-3">KHÁCH HÀNG</th>
                   <th>NHU CẦU</th>
                   <th>TRẠNG THÁI</th>
+                  <th class="text-center" title="Số lượng tương tác">TƯƠNG TÁC</th>
                   <th class="text-center"><i class="ti ti-settings"></i></th>
                 </tr>
               </thead>
               <tbody id="teamCustomerList">
-                <tr><td colspan="4" class="text-center py-5 text-muted">Đang tải danh sách...</td></tr>
+                <tr><td colspan="6" class="text-center py-5 text-muted">Đang tải danh sách...</td></tr>
               </tbody>
             </table>
           </div>
+          <!-- KHUNG CHỨA NÚT PHÂN TRANG -->
+          <div id="teamPaginationControls" class="card-footer d-flex align-items-center bg-white border-0" style="padding: 12px 16px; border-radius: 0 0 12px 12px;"></div>
         </div>
       </div>
 
@@ -140,7 +152,6 @@
       </div>
       <div class="modal-body p-4 p-md-5">
         
-        <!-- TẠO TEAM MỚI -->
         <h4 class="fw-bold" style="color: #146654;"><i class="ti ti-circle-plus me-2"></i>1. Khởi Tạo Team Mới</h4>
         <div class="d-flex gap-2 mb-2">
           <input type="text" id="newTeamName" class="form-control form-control-lg" placeholder="Nhập tên Team (VD: Biệt đội chốt sale...)">
@@ -246,23 +257,24 @@
   let myTeams = [];
   let currentTeamId = null;
   let activeCustomerId = null;
-  
-  // Bộ đệm chứa mọi member (Kể cả System) để đọc tên khi Chat
   let allMembersCache = []; 
-  // Bộ đệm chứa khách hàng hiện tại của Team để so sánh (Diffing) khi sửa
   let globalTeamCustomers = [];
 
   // =====================================
-  // 1. KHỞI TẠO MODULE
+  // KIỂM SOÁT PHÂN TRANG (PAGINATION)
   // =====================================
+  let currentTeamPage = 1;
+  const teamItemsPerPage = 30;
+  let totalTeamItems = 0;
+
+  // 1. KHỞI TẠO MODULE
   async function loadTeamWorkModule() {
     await fetchAllMembers();
     await fetchMyTeams();
   }
 
   async function fetchAllMembers() {
-    // Truy vấn tất cả thành viên để có dữ liệu đối chiếu tên
-    const { data } = await window.sbClient.from('safe_members').select('id, full_name, role');
+    const { data } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
     if(data) allMembersCache = data;
   }
 
@@ -285,10 +297,7 @@
     selector.innerHTML = opts;
   }
 
-  // =====================================
   // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM / XÓA NGƯỜI)
-  // =====================================
-  
   async function openManageTeamModal() {
     const manageSection = document.getElementById('manageTeamSection');
     const warningSection = document.getElementById('noTeamSelectedWarning');
@@ -309,14 +318,11 @@
 
     tbody.innerHTML = '<tr><td class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary"></span></td></tr>';
 
-    // FIX: Tách query lấy mảng ID những người đang ở trong team
     const { data, error } = await window.sbClient.from('team_members').select('member_id').eq('team_id', currentTeamId);
-    
     if (error) { tbody.innerHTML = '<tr><td class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
 
     const currentMemberIds = data.map(d => d.member_id);
 
-    // Vẽ danh sách thành viên hiện tại
     tbody.innerHTML = '';
     currentMemberIds.forEach(mid => {
       const memInfo = allMembersCache.find(x => x.id === mid);
@@ -334,7 +340,6 @@
       }
     });
 
-    // Vẽ Dropdown thêm người: Lọc bỏ System và những người đã có trong team
     selectAdd.innerHTML = '<option value="">-- Chọn nhân sự để thêm --</option>';
     allMembersCache.forEach(m => {
       if (!currentMemberIds.includes(m.id) && m.role !== 'system') {
@@ -372,7 +377,6 @@
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
   }
 
-  // TÍNH NĂNG MỚI: CHỐNG XÓA NGƯỜI CUỐI CÙNG TRONG TEAM
   async function removeMemberFromTeam(memberId) {
     Swal.fire({
       title: 'Xóa nhân sự khỏi Team?',
@@ -384,12 +388,11 @@
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // Kiểm tra xem team còn bao nhiêu người
           const { count, error: countErr } = await window.sbClient.from('team_members').select('*', { count: 'exact', head: true }).eq('team_id', currentTeamId);
           if (countErr) throw countErr;
           
           if (count <= 1) {
-            Swal.fire('Thao tác từ chối', 'Không thể gỡ thành viên cuối cùng! Team phải có ít nhất 1 người tham gia.', 'error');
+            Swal.fire('Từ chối', 'Không thể gỡ thành viên cuối cùng! Team phải có ít nhất 1 người tham gia.', 'error');
             return;
           }
 
@@ -399,9 +402,8 @@
           Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã xóa khỏi Team', timer: 1500, showConfirmButton: false });
           openManageTeamModal();
 
-          // Nếu tự xóa chính mình, reset lại giao diện ra màn hình chờ
           if (memberId === window.currentUser.id) {
-            document.getElementById('btnCloseTeamCusModal').click();
+            document.getElementById('btnCloseTeamCusModal')?.click();
             await fetchMyTeams();
             changeActiveTeam();
           }
@@ -413,7 +415,7 @@
   }
 
   // =====================================
-  // 3. XỬ LÝ CHỌN TEAM VÀ LOAD KHÁCH HÀNG
+  // 3. XỬ LÝ CHỌN TEAM VÀ LOAD KHÁCH HÀNG (CÓ PHÂN TRANG)
   // =====================================
   function changeActiveTeam() {
     currentTeamId = document.getElementById('teamSelector').value;
@@ -431,6 +433,7 @@
       document.getElementById('chatIsProposal').disabled = true;
       document.getElementById('btnSendChat').disabled = true;
 
+      currentTeamPage = 1;
       loadTeamCustomers();
     } else {
       document.getElementById('emptyWorkspace').style.display = 'block';
@@ -440,32 +443,83 @@
 
   async function loadTeamCustomers() {
     const tbody = document.getElementById('teamCustomerList');
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tải...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tải danh sách...</td></tr>';
     
-    const { data, error } = await window.sbClient.from('team_customers').select('*').eq('team_id', currentTeamId).order('updated_at', { ascending: false });
-    
-    if (error) { tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
-    if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">Team chưa có khách hàng nào.</td></tr>'; return; }
+    const from = (currentTeamPage - 1) * teamItemsPerPage;
+    const to = from + teamItemsPerPage - 1;
 
-    globalTeamCustomers = data; // Lưu bộ đệm để so sánh dữ liệu khi Edit
+    // Lệnh order ưu tiên đưa khách hàng vừa được update (Có Log/Sửa) lên trên cùng
+    const { data, error, count } = await window.sbClient
+      .from('team_customers')
+      .select('*', { count: 'exact' })
+      .eq('team_id', currentTeamId)
+      .order('updated_at', { ascending: false })
+      .range(from, to);
+    
+    if (error) { tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
+    if (!data || data.length === 0) { 
+      tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">Team chưa có khách hàng nào.</td></tr>'; 
+      document.getElementById('teamPaginationControls').innerHTML = '';
+      return; 
+    }
+
+    globalTeamCustomers = data; 
+    totalTeamItems = count || 0;
+
+    // QUY TRÌNH THÔNG MINH: ĐẾM LOG VÀ PHÁT HIỆN "CÓ LOG MỚI" TỪ DB
+    const customerIds = data.map(c => c.id);
+    const { data: logStats } = await window.sbClient
+      .from('team_logs')
+      .select('team_customer_id, member_id, created_at')
+      .in('team_customer_id', customerIds)
+      .order('created_at', { ascending: false }); // Xếp mới nhất lên trên để nhận diện
+
+    const logsMap = {};
+    customerIds.forEach(id => logsMap[id] = { count: 0, hasNew: false, latest_processed: false });
+    
+    if (logStats) {
+      logStats.forEach(log => {
+        logsMap[log.team_customer_id].count++;
+        // Kiểm tra Log mới: Nếu log cuối cùng KHÔNG phải do mình đăng -> Có log mới
+        if (!logsMap[log.team_customer_id].latest_processed) {
+          if (log.member_id !== window.currentUser.id) {
+            logsMap[log.team_customer_id].hasNew = true; 
+          }
+          logsMap[log.team_customer_id].latest_processed = true;
+        }
+      });
+    }
+
     tbody.innerHTML = '';
     const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ QĐ', 'success': 'Đã chốt', 'failed': 'Thất bại' };
     const colorMap = { 'potential': 'blue', 'waiting': 'orange', 'success': 'green', 'failed': 'red' };
 
-    data.forEach(cus => {
+    data.forEach((cus, index) => {
       const tr = document.createElement('tr');
       tr.className = 'customer-row';
       tr.id = `tc-row-${cus.id}`;
+      // Giữ class active nếu dòng này đang được chọn để chat
+      if (cus.id === activeCustomerId) tr.classList.add('active');
       tr.onclick = () => selectTeamCustomer(cus);
       
-      // FIX LỖI: Thêm thuộc tính data-bs-toggle="modal" để bật Pop-up
+      const stt = (currentTeamPage - 1) * teamItemsPerPage + index + 1;
+      const logInfo = logsMap[cus.id];
+      
+      // Xây dựng Badge hiển thị Logs và cảnh báo "MỚI"
+      let logBadge = `<span class="badge bg-secondary-lt fw-bold" title="Tổng số Logs">${logInfo.count}</span>`;
+      if (logInfo.hasNew) {
+        logBadge += ` <span class="badge bg-red text-white ms-1 pulse-animation" title="Có tương tác mới">MỚI</span>`;
+      }
+
       tr.innerHTML = `
+        <td class="text-center text-muted fw-bold">${stt}</td>
         <td class="ps-3">
           <div class="fw-bold text-dark">${cus.full_name}</div>
           <div class="text-muted" style="font-size: 11px;"><i class="ti ti-phone me-1"></i>${cus.phone}</div>
         </td>
         <td class="text-muted" style="font-size: 13px; white-space: normal; max-width: 150px;">${cus.demand || '-'}</td>
         <td><span class="badge bg-${colorMap[cus.lead_status]}-lt">${statusMap[cus.lead_status]}</span></td>
+        <td class="text-center">${logBadge}</td>
         <td class="text-center">
           <button class="btn btn-sm btn-icon btn-outline-secondary border-0" data-bs-toggle="modal" data-bs-target="#modal-team-customer" onclick="event.stopPropagation(); openTeamCustomerModal('${cus.id}')">
             <i class="ti ti-pencil"></i>
@@ -474,6 +528,31 @@
       `;
       tbody.appendChild(tr);
     });
+
+    renderTeamPagination();
+  }
+
+  function renderTeamPagination() {
+    const totalPages = Math.ceil(totalTeamItems / teamItemsPerPage) || 1;
+    const paginationEl = document.getElementById('teamPaginationControls');
+    if (totalTeamItems === 0) { paginationEl.innerHTML = ''; return; }
+    
+    const fromCount = (currentTeamPage - 1) * teamItemsPerPage + 1;
+    const toCount = Math.min(currentTeamPage * teamItemsPerPage, totalTeamItems);
+
+    paginationEl.innerHTML = `
+      <span class="text-muted fw-medium" style="font-size: 13px;">Hiển thị <strong>${fromCount}</strong> - <strong>${toCount}</strong> / <strong>${totalTeamItems}</strong> khách</span>
+      <div class="btn-group ms-auto">
+        <button class="btn btn-sm btn-outline-secondary" onclick="changeTeamPage(-1)" ${currentTeamPage === 1 ? 'disabled' : ''}><i class="ti ti-chevron-left me-1"></i> Trước</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled style="color: var(--tblr-primary); font-weight: bold;">Trang ${currentTeamPage}/${totalPages}</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="changeTeamPage(1)" ${currentTeamPage === totalPages ? 'disabled' : ''}>Sau <i class="ti ti-chevron-right ms-1"></i></button>
+      </div>
+    `;
+  }
+
+  function changeTeamPage(direction) {
+    currentTeamPage += direction;
+    loadTeamCustomers();
   }
 
   // =====================================
@@ -504,6 +583,9 @@
     }
 
     await loadTeamLogs();
+    
+    // Nếu vừa Click vào xem -> Cập nhật lại danh sách để tắt hiệu ứng Nhấp nháy "MỚI" (Do đã xem log)
+    // Tạm thời vô hiệu hóa load tự động để tránh giật hình, hiệu ứng sẽ mất ở lần F5 hoặc Refresh sau.
   }
 
   async function loadTeamLogs() {
@@ -522,8 +604,6 @@
 
     data.reverse().forEach(log => {
       const isMe = log.member_id === window.currentUser.id;
-      
-      // Lấy tên người báo cáo (System sẽ được hiển thị bằng tên thật thay vì 'Hệ thống')
       const mem = allMembersCache.find(m => m.id === log.member_id);
       const name = mem ? mem.full_name : 'Hệ thống';
       
@@ -540,7 +620,6 @@
         const colorClass = isMe ? 'bg-blue-lt border-blue' : (log.is_proposal ? 'proposal' : '');
         const alignText = isMe ? 'text-end' : 'text-start';
 
-        // Xử lý Logs format (Cắt chuỗi nếu có chữ Thay đổi:)
         let formattedContent = '';
         if (log.content.startsWith('Thay đổi: ')) {
           const separator = log.content.includes('[SEP]') ? '[SEP]' : ' | ';
@@ -575,7 +654,7 @@
   }
 
   // =====================================
-  // 5. GỬI LOG MỚI HOẶC ĐỀ XUẤT
+  // 5. GỬI LOG MỚI HOẶC ĐỀ XUẤT (CẬP NHẬT UPDATED_AT ĐỂ PUSH LÊN ĐẦU)
   // =====================================
   async function submitTeamLog() {
     const input = document.getElementById('chatInput');
@@ -587,16 +666,18 @@
     try {
       const vnTime = new Date().toISOString();
 
+      // CẬP NHẬT TEAM_CUSTOMERS ĐỂ ĐẨY KHÁCH HÀNG NÀY LÊN ĐẦU BẢNG XẾP HẠNG
+      const updatePayload = { updated_at: vnTime };
       if (isProposal) {
-        await window.sbClient.from('team_customers').update({ 
-          proposal: content, updated_at: vnTime 
-        }).eq('id', activeCustomerId);
-        
+        updatePayload.proposal = content;
         document.getElementById('proposalAlertBox').style.display = 'block';
         document.getElementById('proposalAlertText').innerText = content;
         currentCustomerData.proposal = content; 
       }
 
+      await window.sbClient.from('team_customers').update(updatePayload).eq('id', activeCustomerId);
+
+      // Lưu log vào DB
       await window.sbClient.from('team_logs').insert([{
         team_customer_id: activeCustomerId,
         member_id: window.currentUser.id,
@@ -607,14 +688,19 @@
 
       input.value = '';
       document.getElementById('chatIsProposal').checked = false;
+      
+      // Tải lại Log Chat
       await loadTeamLogs();
+      
+      // Tải lại danh sách khách hàng để sắp xếp người vừa Chat lên ưu tiên Top 1
+      await loadTeamCustomers();
 
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
     finally { input.disabled = false; input.focus(); }
   }
 
   // =====================================
-  // 6. THÊM / SỬA KHÁCH TEAM (TẠO LOG DIFF CHI TIẾT)
+  // 6. THÊM / SỬA KHÁCH TEAM (DIFFING BÁO CÁO)
   // =====================================
   async function openTeamCustomerModal(id = null) {
     if (!currentTeamId) { Swal.fire('Lưu ý', 'Hãy chọn Team trước!', 'warning'); return; }
@@ -660,7 +746,6 @@
 
     try {
       if (id) {
-        // TÍNH NĂNG MỚI: DIFFING DỮ LIỆU ĐỂ TẠO LOGS RÕ RÀNG
         const oldData = globalTeamCustomers.find(c => c.id === id);
         let changes = [];
         
@@ -670,7 +755,6 @@
         if (oldData.lead_status !== payload.lead_status) changes.push(`Trạng thái: ${statusMap[oldData.lead_status]} ➔ ${statusMap[payload.lead_status]}`);
         if (normalize(oldData.proposal) !== normalize(payload.proposal)) {
            changes.push(`Đề xuất: [${oldData.proposal || 'Trống'}] ➔ [${payload.proposal || 'Trống'}]`);
-           // Nếu có cập nhật đề xuất ở đây, trigger alert box realtime
            if(id === activeCustomerId && payload.proposal) {
              document.getElementById('proposalAlertBox').style.display = 'block';
              document.getElementById('proposalAlertText').innerText = payload.proposal;
@@ -698,7 +782,7 @@
       document.getElementById('btnCloseTeamCusModal').click();
       Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
       
-      await loadTeamCustomers();
+      await loadTeamCustomers(); // Tải lại danh sách và đẩy người này lên đầu bảng
       if (id && id === activeCustomerId) {
          await loadTeamLogs(); // Tải lại logs nếu đang chat
       }
