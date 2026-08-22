@@ -48,7 +48,7 @@
           </div>
           <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
             <table class="table table-vcenter table-hover text-nowrap m-0">
-              <thead style="position: sticky; top: 0; z-index: 1;">
+              <thead style="position: sticky; top: 0; z-index: 1; background: #fff;">
                 <tr>
                   <th class="ps-3">KHÁCH HÀNG</th>
                   <th>NHU CẦU</th>
@@ -76,8 +76,7 @@
           </div>
 
           <div class="card-body flex-grow-1 p-3" style="background: #f1f5f9;">
-            
-            <!-- KHU VỰC BÔI ĐỎ ĐỀ XUẤT QUAN TRỌNG -->
+            <!-- BÔI ĐỎ ĐỀ XUẤT QUAN TRỌNG -->
             <div id="proposalAlertBox" class="proposal-alert mb-3" style="display: none;">
               <div class="d-flex align-items-center mb-1">
                 <i class="ti ti-alert-triangle fs-2 me-2"></i>
@@ -86,7 +85,7 @@
               <div id="proposalAlertText" style="font-size: 13.5px; white-space: pre-wrap;"></div>
             </div>
 
-            <!-- KHUNG HIỂN THỊ LOGS -->
+            <!-- HIỂN THỊ LOGS -->
             <div class="chat-box" id="teamLogsBox">
               <div class="text-center py-5 text-muted">
                 <i class="ti ti-messages text-muted mb-2" style="font-size: 40px; opacity: 0.3;"></i><br>
@@ -95,7 +94,7 @@
             </div>
           </div>
 
-          <!-- KHUNG NHẬP LIỆU -->
+          <!-- NHẬP LIỆU CHAT -->
           <div class="card-footer bg-white p-3 border-top" style="border-radius: 0 0 12px 12px;">
             <form id="chatForm" onsubmit="event.preventDefault(); submitTeamLog();">
               <div class="mb-2">
@@ -103,7 +102,7 @@
               </div>
               <div class="d-flex justify-content-between align-items-center">
                 <label class="form-check m-0">
-                  <input class="form-check-input" type="checkbox" id="chatIsProposal" disabled>
+                  <input class="form-check-input" type="checkbox" id="chatIsProposal" disabled style="accent-color: #e11d48;">
                   <span class="form-check-label text-danger fw-bold" style="font-size: 12px;">Ghi đè Đề xuất quan trọng</span>
                 </label>
                 <button type="submit" id="btnSendChat" class="btn btn-brand" disabled>
@@ -118,7 +117,7 @@
 
     </div>
 
-    <!-- MÀN HÌNH CHÀO KHI CHƯA CHỌN TEAM -->
+    <!-- MÀN HÌNH CHÀO (EMPTY STATE) -->
     <div id="emptyWorkspace" class="text-center py-5">
       <i class="ti ti-users-group text-muted mb-3" style="font-size: 80px; opacity: 0.2;"></i>
       <h2 class="fw-bold" style="color: #146654;">Không Gian Làm Việc Nhóm</h2>
@@ -129,7 +128,7 @@
 </div>
 
 <!-- ============================================== -->
-<!-- MODAL: QUẢN LÝ TEAM VÀ THÊM THÀNH VIÊN -->
+<!-- MODAL: QUẢN LÝ TEAM VÀ THÊM THÀNH VIÊN (ĐÃ FIX)-->
 <!-- ============================================== -->
 <div class="modal modal-blur fade" id="modal-manage-team" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -140,7 +139,7 @@
       </div>
       <div class="modal-body p-4 p-md-5">
         
-        <!-- PHẦN 1: TẠO TEAM MỚI -->
+        <!-- TẠO TEAM MỚI -->
         <h4 class="fw-bold" style="color: #146654;"><i class="ti ti-circle-plus me-2"></i>1. Khởi Tạo Team Mới</h4>
         <div class="d-flex gap-2 mb-2">
           <input type="text" id="newTeamName" class="form-control form-control-lg" placeholder="Nhập tên Team (VD: Biệt đội chốt sale...)">
@@ -150,11 +149,10 @@
         <div id="manageTeamSection" style="display: none;">
           <hr class="my-4" style="border-color: #cbd5e1;">
           
-          <!-- PHẦN 2: QUẢN LÝ THÀNH VIÊN TRONG TEAM HIỆN TẠI -->
+          <!-- QUẢN LÝ THÀNH VIÊN (ĐÃ FIX LỖI) -->
           <h4 class="fw-bold mb-3" style="color: #146654;" id="manageTeamTitle"><i class="ti ti-users me-2"></i>2. Quản Lý Thành Viên Team</h4>
           
           <div class="row g-4">
-            <!-- Cột Trái: DS Thành viên -->
             <div class="col-md-6">
               <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">THÀNH VIÊN TRONG TEAM HIỆN TẠI</label>
               <div class="table-responsive border rounded bg-white" style="max-height: 200px; overflow-y: auto;">
@@ -166,7 +164,6 @@
               </div>
             </div>
 
-            <!-- Cột Phải: Form Thêm người -->
             <div class="col-md-6">
               <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">THÊM THÀNH VIÊN MỚI</label>
               <div class="d-flex flex-column gap-2">
@@ -175,7 +172,7 @@
                 </select>
                 <button class="btn btn-success" onclick="addMemberToTeam()"><i class="ti ti-user-plus me-2"></i> Bổ sung vào Team</button>
               </div>
-              <div class="text-muted mt-2" style="font-size: 11px;">* Danh sách trên đã tự động ẩn đi tài khoản System và những nhân sự đã có mặt trong Team.</div>
+              <div class="text-muted mt-2" style="font-size: 11px;">* Danh sách đã tự động ẩn đi tài khoản System và những nhân sự đã có mặt trong Team.</div>
             </div>
           </div>
 
@@ -249,7 +246,7 @@
   let myTeams = [];
   let currentTeamId = null;
   let activeCustomerId = null;
-  let allMembers = [];
+  let allMembersCache = []; // Bộ nhớ đệm toàn bộ nhân sự (Kể cả system) để map Tên trong lịch sử chat
 
   // =====================================
   // 1. KHỞI TẠO MODULE
@@ -260,11 +257,9 @@
   }
 
   async function fetchAllMembers() {
-    // ẨN USER SYSTEM KHỎI DANH SÁCH BẰNG LỆNH .neq('role', 'system')
-    const { data } = await window.sbClient.from('safe_members').select('id, full_name').eq('is_active', true).neq('role', 'system');
-    if(data) {
-      allMembers = data;
-    }
+    // Tải TOÀN BỘ để map tên lịch sử chat (Tránh bị vô danh do ẩn system)
+    const { data } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
+    if(data) allMembersCache = data;
   }
 
   async function fetchMyTeams() {
@@ -287,17 +282,15 @@
   }
 
   // =====================================
-  // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM NGƯỜI)
+  // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM NGƯỜI) - ĐÃ FIX
   // =====================================
   
-  // Hàm tải Modal Quản lý Team
   async function openManageTeamModal() {
     const manageSection = document.getElementById('manageTeamSection');
     const warningSection = document.getElementById('noTeamSelectedWarning');
     const tbody = document.getElementById('currentTeamMembersList');
     const selectAdd = document.getElementById('selectMemberToAdd');
 
-    // Nếu người dùng chưa chọn Team thì ẩn khu vực quản lý
     if (!currentTeamId) {
       manageSection.style.display = 'none';
       warningSection.style.display = 'block';
@@ -312,35 +305,38 @@
 
     tbody.innerHTML = '<tr><td class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary"></span></td></tr>';
 
-    // Lấy những người ĐANG CÓ trong Team (Join 2 bảng team_members và members)
+    // XỬ LÝ LỖI JOIN BẢNG: Chỉ lấy danh sách ID từ team_members, sau đó map tên bằng JS Local
     const { data, error } = await window.sbClient
       .from('team_members')
-      .select('member_id, members!inner(full_name)')
+      .select('member_id')
       .eq('team_id', currentTeamId);
     
     if (error) { tbody.innerHTML = '<tr><td class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
 
     const currentMemberIds = data.map(d => d.member_id);
 
-    // Vẽ danh sách thành viên hiện tại
+    // Render danh sách thành viên hiện tại
     tbody.innerHTML = '';
-    data.forEach(m => {
-      tbody.innerHTML += `
-        <tr>
-          <td class="fw-bold text-dark"><i class="ti ti-user me-2 text-muted"></i>${m.members.full_name}</td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="removeMemberFromTeam('${m.member_id}')" title="Xóa khỏi Team">
-              <i class="ti ti-x"></i> Gỡ
-            </button>
-          </td>
-        </tr>
-      `;
+    currentMemberIds.forEach(mid => {
+      const memInfo = allMembersCache.find(x => x.id === mid);
+      if(memInfo) {
+        tbody.innerHTML += `
+          <tr>
+            <td class="fw-bold text-dark"><i class="ti ti-user me-2 text-muted"></i>${memInfo.full_name}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="removeMemberFromTeam('${mid}')" title="Xóa khỏi Team">
+                <i class="ti ti-x"></i> Gỡ
+              </button>
+            </td>
+          </tr>
+        `;
+      }
     });
 
-    // Vẽ danh sách thả xuống thêm người (ĐÃ LOẠI TRỪ NHỮNG NGƯỜI ĐANG CÓ)
+    // Render Dropdown Thêm mới: LỌC BỎ SYSTEM VÀ NHỮNG NGƯỜI ĐÃ CÓ TRONG TEAM
     selectAdd.innerHTML = '<option value="">-- Chọn nhân sự để thêm --</option>';
-    allMembers.forEach(m => {
-      if (!currentMemberIds.includes(m.id)) {
+    allMembersCache.forEach(m => {
+      if (!currentMemberIds.includes(m.id) && m.role !== 'system') {
         selectAdd.innerHTML += `<option value="${m.id}">${m.full_name}</option>`;
       }
     });
@@ -364,21 +360,21 @@
 
   async function addMemberToTeam() {
     const memberId = document.getElementById('selectMemberToAdd').value;
-    if (!memberId) { Swal.fire('Lưu ý', 'Hãy chọn 1 thành viên!', 'warning'); return; }
+    if (!memberId) { Swal.fire('Lưu ý', 'Hãy chọn 1 thành viên ở ô thả xuống!', 'warning'); return; }
 
     try {
       const { error } = await window.sbClient.from('team_members').insert([{ team_id: currentTeamId, member_id: memberId }]);
       if (error) throw error;
       
       Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thêm người vào Team', timer: 1500, showConfirmButton: false });
-      openManageTeamModal(); // Tải lại 2 danh sách trong Modal
+      openManageTeamModal(); // Tải lại 2 danh sách trong Modal ngay lập tức
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
   }
 
   async function removeMemberFromTeam(memberId) {
     Swal.fire({
       title: 'Xóa nhân sự khỏi Team?',
-      text: "Thành viên này sẽ không còn thấy dữ liệu của Team nữa.",
+      text: "Họ sẽ không còn nhìn thấy dữ liệu khách hàng của Team này nữa.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -387,7 +383,7 @@
       if (result.isConfirmed) {
         await window.sbClient.from('team_members').delete().match({ team_id: currentTeamId, member_id: memberId });
         Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã xóa khỏi Team', timer: 1500, showConfirmButton: false });
-        openManageTeamModal(); // Tải lại 2 danh sách trong Modal
+        openManageTeamModal();
       }
     });
   }
@@ -437,6 +433,7 @@
       tr.id = `tc-row-${cus.id}`;
       tr.onclick = () => selectTeamCustomer(cus);
       
+      // FIX LỖI SỐ 3: THÊM CÁC THUỘC TÍNH DATA-BS-TOGGLE VÀO NÚT BẤM ĐỂ MỞ MODAL SỬA KHÁCH
       tr.innerHTML = `
         <td class="ps-3">
           <div class="fw-bold text-dark">${cus.full_name}</div>
@@ -445,7 +442,7 @@
         <td class="text-muted" style="font-size: 13px; white-space: normal; max-width: 150px;">${cus.demand || '-'}</td>
         <td><span class="badge bg-${colorMap[cus.lead_status]}-lt">${statusMap[cus.lead_status]}</span></td>
         <td class="text-center">
-          <button class="btn btn-sm btn-icon btn-outline-secondary border-0" onclick="event.stopPropagation(); openTeamCustomerModal('${cus.id}')">
+          <button class="btn btn-sm btn-icon btn-outline-secondary border-0" data-bs-toggle="modal" data-bs-target="#modal-team-customer" onclick="event.stopPropagation(); openTeamCustomerModal('${cus.id}')">
             <i class="ti ti-pencil"></i>
           </button>
         </td>
@@ -500,8 +497,10 @@
 
     data.reverse().forEach(log => {
       const isMe = log.member_id === window.currentUser.id;
-      const mem = allMembers.find(m => m.id === log.member_id);
+      // Map tên người chat từ bộ nhớ đệm (Đã bao gồm System)
+      const mem = allMembersCache.find(m => m.id === log.member_id);
       const name = mem ? mem.full_name : 'Hệ thống';
+      
       const timeStr = new Date(log.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) + ' ' + new Date(log.created_at).toLocaleDateString('vi-VN');
       
       const div = document.createElement('div');
@@ -615,13 +614,13 @@
       if (id) {
         await window.sbClient.from('team_customers').update(payload).eq('id', id);
         await window.sbClient.from('team_logs').insert([{
-          team_customer_id: id, content: `${window.currentUser.full_name} đã cập nhật thông tin / đề xuất.`, created_at: vnTime
+          team_customer_id: id, member_id: window.currentUser.id, content: `Đã cập nhật thông tin / đề xuất khách hàng.`, created_at: vnTime
         }]);
       } else {
         payload.created_by = window.currentUser.id;
         const { data } = await window.sbClient.from('team_customers').insert([payload]).select().single();
         await window.sbClient.from('team_logs').insert([{
-          team_customer_id: data.id, content: `Khách hàng được đưa vào Team bởi ${window.currentUser.full_name}.`, created_at: vnTime
+          team_customer_id: data.id, member_id: window.currentUser.id, content: `Khách hàng mới được thêm vào Team.`, created_at: vnTime
         }]);
       }
       
