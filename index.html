@@ -105,7 +105,7 @@
                 <span class="avatar avatar-sm user-avatar-premium rounded-circle" style="background-image: url(https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundType=gradientLinear)"></span>
                 <div class="ps-2 text-start pe-2">
                   <div class="fw-bold text-dark" style="font-size: 13px;">${user.full_name}</div>
-                  <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 9px;">${user.role}</div>
+                  <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 0.8px;">${user.role} ${user.department ? '- ' + user.department : ''}</div>
                 </div>
               </div>
               <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i>Thoát</button>
