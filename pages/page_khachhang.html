@@ -13,9 +13,9 @@
     <div class="row g-2 align-items-center">
       <div class="col">
         <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
-          <i class="ti ti-address-book me-2"></i> Data Khách Hàng
+          <i class="ti ti-address-book me-2"></i> Data Khách Hàng Cá Nhân
         </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Lưu trữ khách hàng tiềm năng và ghi nhận lịch sử chăm sóc</div>
+        <div class="text-muted mt-1" style="font-size: 13px;">Khu vực bảo mật: Chỉ hiển thị dữ liệu do bạn sở hữu</div>
       </div>
       <div class="col-auto ms-auto d-print-none d-flex gap-3 align-items-center">
         <button class="btn btn-brand d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modal-customer" onclick="openCustomerModal()">
@@ -29,12 +29,12 @@
 <div class="page-body">
   <div class="container-xl">
     
-    <!-- THANH TÌM KIẾM & BỘ LỌC -->
+    <!-- THANH TÌM KIẾM & BỘ LỌC (ĐÃ BỎ LỌC SALES) -->
     <div class="filter-bar row g-3">
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="input-icon">
           <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
-          <input type="text" id="filterSearch" class="form-control fw-medium" placeholder="Tìm tên, SĐT..." onkeyup="applyFilter()">
+          <input type="text" id="filterSearch" class="form-control fw-medium" placeholder="Tìm tên, SĐT khách hàng..." onkeyup="applyFilter()">
         </div>
       </div>
       <div class="col-md-2">
@@ -47,7 +47,7 @@
           </select>
         </div>
       </div>
-      <div class="col-md-2">
+      <div class="col-md-3">
         <div class="input-icon">
           <span class="input-icon-addon"><i class="ti ti-map-pin text-muted"></i></span>
           <input type="text" id="filterCity" class="form-control fw-medium" placeholder="Tỉnh thành..." onkeyup="applyFilter()">
@@ -65,11 +65,6 @@
             <option value="Khác">Nguồn khác</option>
           </select>
         </div>
-      </div>
-      <div class="col-md-2">
-        <select id="filterSales" class="form-select fw-medium" onchange="applyFilter()">
-          <option value="all">Sales (Tất cả)</option>
-        </select>
       </div>
       <div class="col-md-1">
         <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" title="Tải lại" onclick="resetFilter()">
@@ -126,7 +121,7 @@
             <form id="customerForm" onsubmit="event.preventDefault(); saveCustomer();">
               <input type="hidden" id="customerId">
               
-              <!-- SECTION 1: PHÂN BỔ -->
+              <!-- SECTION 1: PHỤ TRÁCH -->
               <div class="mb-3">
                  <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-headset me-2"></i>1. Sales Phụ Trách</h3>
                  <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
@@ -180,7 +175,7 @@
                 </div>
               </div>
 
-              <!-- SECTION 3: PHÂN LOẠI DATA -->
+              <!-- SECTION 3: NGUỒN & TRẠNG THÁI -->
               <div class="mb-3 mt-4">
                  <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-tags me-2"></i>3. Nguồn & Trạng Thái</h3>
                  <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
@@ -188,7 +183,7 @@
 
               <div class="row gx-3 mb-3">
                 <div class="col-md-6 mb-3 mb-md-0">
-                  <label class="form-label fw-medium text-muted" style="font-size: 13px;">Nguồn khách</label>
+                  <label class="form-label fw-medium text-muted" style="font-size: 13px;">Nguồn khách (Marketing/Tự kiếm)</label>
                   <div class="input-icon">
                     <span class="input-icon-addon"><i class="ti ti-world"></i></span>
                     <select id="cusSource" class="form-select form-select-lg fs-4 fw-medium" style="border-radius: 8px;">
@@ -274,18 +269,13 @@
   let totalItems = 0;
   let searchTimeout = null;
 
-  // 1. KHỞI TẠO BỘ LỌC SALES
+  // 1. CHUẨN BỊ DANH SÁCH NHÂN SỰ
   async function loadSalesList() {
     const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
-    if (sData) {
-      globalSales = sData;
-      let options = '<option value="all">Sales (Tất cả)</option>';
-      sData.forEach(sale => options += `<option value="${sale.id}">${sale.full_name}</option>`);
-      document.getElementById('filterSales').innerHTML = options;
-    }
+    if (sData) globalSales = sData;
   }
 
-  // 2. TẢI DATA KHÁCH HÀNG KÈM BỘ LỌC & PHÂN TRANG
+  // 2. TẢI DATA KHÁCH HÀNG (BẢO MẬT CHẶT CHẼ)
   async function loadCustomers() {
     document.getElementById('customerTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span> Đang kết nối Database...</td></tr>';
     
@@ -296,23 +286,24 @@
 
     let query = window.sbClient.from('customers').select('*', { count: 'exact' });
 
-    // Quyền: Sales chỉ thấy số của mình
-    if (role === 'sales') {
+    // =========================================================
+    // CHỐT CHẶN BẢO MẬT: CHỈ SYSTEM MỚI ĐƯỢC XEM TOÀN BỘ DATA
+    // TẤT CẢ CÁC ROLE CÒN LẠI (ADMIN, MANAGER, SALES) CHỈ THẤY SỐ CỦA MÌNH
+    // =========================================================
+    if (role !== 'system') {
       query = query.eq('assigned_to', myId);
     }
 
-    // Áp dụng bộ lọc
+    // Áp dụng bộ lọc hiện tại
     const keyword = document.getElementById('filterSearch').value.trim().toLowerCase();
     const status = document.getElementById('filterStatus').value;
     const city = document.getElementById('filterCity').value.trim().toLowerCase();
     const source = document.getElementById('filterSource').value;
-    const salesId = document.getElementById('filterSales').value;
 
     if (keyword) query = query.or(`full_name.ilike.%${keyword}%,phone.ilike.%${keyword}%,phone2.ilike.%${keyword}%`);
     if (status !== 'all') query = query.eq('lead_status', status);
     if (city) query = query.ilike('city', `%${city}%`);
     if (source !== 'all') query = query.eq('source', source);
-    if (salesId !== 'all') query = query.eq('assigned_to', salesId);
 
     const { data, error, count } = await query.order('updated_at', { ascending: false }).range(from, to);
     if (error) { Swal.fire('Lỗi Database', error.message, 'error'); return; }
@@ -329,7 +320,7 @@
     const tbody = document.getElementById('customerTableBody');
     tbody.innerHTML = '';
     if(dataList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Không có dữ liệu khách hàng.</td></tr>'; return;
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Chưa có dữ liệu khách hàng.</td></tr>'; return;
     }
     
     dataList.forEach((cus, index) => {
@@ -367,7 +358,7 @@
           <div class="d-flex justify-content-center gap-1">
             <button class="btn btn-sm btn-outline-primary px-2" title="Xem/Sửa" data-bs-toggle="modal" data-bs-target="#modal-customer" onclick="openCustomerModal('${cus.id}')"><i class="ti ti-pencil"></i></button>
             <button class="btn btn-sm btn-outline-warning px-2" title="Chuyển Team Work" onclick="transferCustomer('${cus.id}')"><i class="ti ti-arrow-forward-up"></i></button>
-            ${window.currentUser.role === 'admin' ? `<button class="btn btn-sm btn-outline-danger px-2" title="Xóa" onclick="deleteCustomer('${cus.id}')"><i class="ti ti-trash"></i></button>` : ''}
+            ${window.currentUser.role === 'system' ? `<button class="btn btn-sm btn-outline-danger px-2" title="Xóa" onclick="deleteCustomer('${cus.id}')"><i class="ti ti-trash"></i></button>` : ''}
           </div>
         </td>
       `;
@@ -397,12 +388,11 @@
     document.getElementById('filterCity').value = ''; 
     document.getElementById('filterSource').value = 'all'; 
     document.getElementById('filterStatus').value = 'all'; 
-    document.getElementById('filterSales').value = 'all'; 
     currentPage = 1; 
     loadCustomers(); 
   }
 
-  // 4. MỞ MODAL & TẢI TIMELINE
+  // 4. MỞ MODAL
   async function openCustomerModal(id = null) {
     document.getElementById('customerForm').reset();
     document.getElementById('customerId').value = '';
@@ -410,11 +400,19 @@
     const role = window.currentUser.role;
     const assignInput = document.getElementById('cusAssigned');
     
-    let formOptions = '<option value="">-- Chọn Sales --</option>';
-    globalSales.forEach(sale => formOptions += `<option value="${sale.id}">${sale.full_name}</option>`);
-    assignInput.innerHTML = formOptions;
+    let formOptions = '';
+    if (role === 'system') {
+      formOptions = '<option value="">-- Chọn Sales --</option>';
+      globalSales.forEach(sale => formOptions += `<option value="${sale.id}">${sale.full_name}</option>`);
+      assignInput.innerHTML = formOptions;
+      assignInput.disabled = false;
+    } else {
+      // Ép cứng quyền sở hữu cho chính người đăng nhập
+      assignInput.innerHTML = `<option value="${window.currentUser.id}">${window.currentUser.full_name}</option>`;
+      assignInput.value = window.currentUser.id;
+      assignInput.disabled = true; 
+    }
     
-    // Auto map values if called from Marketing Page (Marketing page sets value using ID before modal opens fully)
     setTimeout(async () => {
       if (id) {
         document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-edit me-2"></i> Chỉnh sửa Khách hàng';
@@ -425,35 +423,29 @@
         document.getElementById('cusPhone').value = cus.phone;
         document.getElementById('cusPhone2').value = cus.phone2 || '';
         document.getElementById('cusCity').value = cus.city || ''; 
-        document.getElementById('cusSource').value = cus.source || 'Khác';
+        
+        // Auto thêm Nguồn nếu chưa có
+        const sourceSelect = document.getElementById('cusSource');
+        if (!sourceSelect.querySelector(`option[value="${cus.source}"]`)) {
+          const opt = document.createElement('option'); opt.value = cus.source; opt.text = cus.source; sourceSelect.appendChild(opt);
+        }
+        sourceSelect.value = cus.source || 'Khác';
+
         document.getElementById('cusDataSource').value = cus.data_source || 'Data cá nhân';
         document.getElementById('cusStatus').value = cus.lead_status || 'potential';
         document.getElementById('cusNotes').value = cus.notes || '';
-        assignInput.value = cus.assigned_to || '';
+        
+        if (role === 'system') assignInput.value = cus.assigned_to || '';
         
         await loadCustomerLogs(id);
       } else {
         document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-user-plus me-2"></i> Thêm Khách Mới';
-        
-        // Cố gắng giữ lại giá trị nếu trang Marketing đã tự điền vào form ẩn trước đó
-        if(!document.getElementById('cusAssigned').value) assignInput.value = window.currentUser.id;
-        
-        // Nếu form được Marketing kích hoạt, nó đã gán ID cusSource = 'Other'. Ánh xạ lại:
-        if(document.getElementById('cusSource').value === 'Other') document.getElementById('cusSource').value = 'Khác';
-        
-        // Tự động đẩy Kho Data = Data Công ty nếu khách này đến từ MKT
-        if(document.getElementById('cusNotes').value.includes('Kho Data Marketing')) {
-           document.getElementById('cusDataSource').value = 'Data Công ty';
-        }
-
         document.getElementById('customerTimeline').innerHTML = '<li><div class="text-muted text-center py-5">Khách hàng mới chưa có lịch sử.</div></li>';
       }
-
-      if (role === 'sales') { assignInput.disabled = true; assignInput.value = window.currentUser.id; }
     }, 100);
   }
 
-  // TẢI TIMELINE TỪ BẢNG CARE_LOGS
+  // TẢI LỊCH SỬ CHĂM SÓC
   async function loadCustomerLogs(customerId) {
     const timelineEl = document.getElementById('customerTimeline');
     timelineEl.innerHTML = '<li><div class="text-muted text-center py-4"><span class="spinner-border spinner-border-sm text-success"></span> Đang tải...</div></li>';
@@ -495,8 +487,11 @@
     const id = document.getElementById('customerId').value;
     const vnTime = new Date().toISOString(); 
 
-    let finalAssignedTo = document.getElementById('cusAssigned').value;
-    if (window.currentUser.role === 'sales') finalAssignedTo = window.currentUser.id;
+    // Ép cứng quyền sở hữu cho role khác system
+    let finalAssignedTo = window.currentUser.id;
+    if (window.currentUser.role === 'system') {
+        finalAssignedTo = document.getElementById('cusAssigned').value || null;
+    }
 
     const payload = {
       full_name: document.getElementById('cusName').value, 
@@ -506,7 +501,7 @@
       source: document.getElementById('cusSource').value,
       data_source: document.getElementById('cusDataSource').value,
       lead_status: document.getElementById('cusStatus').value, 
-      assigned_to: finalAssignedTo || null,
+      assigned_to: finalAssignedTo,
       notes: document.getElementById('cusNotes').value || null, 
       updated_at: vnTime
     };
@@ -517,7 +512,6 @@
     try {
       let targetCustomerId = id;
       if (id) {
-        // CẬP NHẬT & TÌM SỰ THAY ĐỔI
         const oldData = globalCustomers.find(c => c.id === id);
         let changes = [];
         
@@ -536,7 +530,6 @@
           }]);
         }
       } else {
-        // TẠO MỚI
         const { data: newCus, error: insErr } = await window.sbClient.from('customers').insert([payload]).select().single();
         if (insErr) throw insErr;
         targetCustomerId = newCus.id;
@@ -556,20 +549,20 @@
     finally { btn.innerHTML = '<i class="ti ti-device-floppy fs-3 me-2"></i> Lưu thông tin'; btn.disabled = false; }
   }
 
-  // 6. CHỨC NĂNG CHUYỂN TEAM WORK (PLACEHOLDER)
+  // 6. CHUYỂN TEAM WORK
   function transferCustomer(id) {
     Swal.fire({
       title: 'Chuyển sang Team Work',
-      text: "Chức năng copy khách hàng này sang không gian làm việc chung (Team Work) sẽ được mở trong bản cập nhật tới!",
+      text: "Tính năng đưa khách hàng vào không gian làm việc chung (Team Work) sẽ có trong bản cập nhật tới!",
       icon: 'info',
       confirmButtonColor: '#146654',
       confirmButtonText: 'Đã hiểu'
     });
   }
 
-  // 7. XÓA KHÁCH HÀNG (CHỈ ADMIN)
+  // 7. XÓA KHÁCH HÀNG (CHỈ SYSTEM)
   function deleteCustomer(id) {
-    Swal.fire({ title: 'Xóa dữ liệu khách?', text: "Hành động này sẽ xóa vĩnh viễn dữ liệu và lịch sử. Chỉ Admin mới có quyền!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Xóa vĩnh viễn' })
+    Swal.fire({ title: 'Xóa dữ liệu khách?', text: "Hành động này sẽ xóa vĩnh viễn dữ liệu và lịch sử. Chỉ SYSTEM mới có quyền!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Xóa vĩnh viễn' })
     .then(async (res) => {
       if (res.isConfirmed) {
         await window.sbClient.from('customers').delete().eq('id', id);
