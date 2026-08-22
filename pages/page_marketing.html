@@ -3,7 +3,7 @@
   .lead-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
   .stat-card { border: none; border-radius: 12px; color: white; overflow: hidden; position: relative; }
   .stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 100px; opacity: 0.15; transform: rotate(-15deg); }
-  .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .search-result-row:hover { background-color: rgba(20, 102, 84, 0.04); }
 </style>
 
@@ -182,7 +182,7 @@
     await loadMyAssignedLeads();
   }
 
-  // 2. LOAD DROPDOWN DỰ ÁN & LỌC QUYỀN TRUY CẬP (CHỐT CHẶN 1)
+  // 2. LOAD DROPDOWN DỰ ÁN
   async function loadAvailableProjects() {
     const selectEl = document.getElementById('selectLeadProject'); 
     const btnGetLeads = document.getElementById('btnGetLeads');
@@ -198,27 +198,23 @@
       const role = window.currentUser.role;
       const allowedProjects = window.currentUser.allowed_projects || [];
       
-      // Khách hàng không có dự án nào
       if (!data || data.length === 0) {
         selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
         btnGetLeads.disabled = true;
         return;
       }
 
-      // Lọc danh sách dự án dựa theo quyền
       let filteredData = data;
       if (role === 'sales') {
         filteredData = data.filter(item => allowedProjects.includes(item.project_name));
       }
 
-      // Xử lý trường hợp bị khóa quyền toàn bộ
       if (filteredData.length === 0) {
         selectEl.innerHTML = '<option value="">-- Bạn chưa được cấp quyền lấy dự án nào --</option>';
         btnGetLeads.disabled = true;
         return;
       }
 
-      // Vẽ HTML Dropdown
       let options = '';
       if (role !== 'sales' || filteredData.length > 1) {
         options += '<option value="all">-- Chọn bốc ngẫu nhiên (Dự án được cấp) --</option>';
@@ -228,8 +224,6 @@
       });
       
       selectEl.innerHTML = options;
-      
-      // Mở khóa nếu không nợ data
       if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
 
     } catch (err) {
@@ -257,7 +251,7 @@
     } catch (err) { console.error('Lỗi tải Dashboard:', err); }
   }
 
-  // 3.5 BÁO CÁO SALES (Sử dụng assigned_to chuẩn xác)
+  // 3.5 BÁO CÁO SALES 
   async function loadAdminSalesStats() {
     const tbody = document.getElementById('adminSalesStatsBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>';
@@ -294,7 +288,7 @@
     });
   }
 
-  // 4. DANH SÁCH ĐANG NỢ CỦA SALES (Sử dụng assigned_to chuẩn xác)
+  // 4. DANH SÁCH ĐANG NỢ CỦA SALES
   async function loadMyAssignedLeads() {
     const container = document.getElementById('myLeadsContainer');
     const myId = window.currentUser.id;
@@ -307,8 +301,6 @@
 
     const btnGet = document.getElementById('btnGetLeads');
     const warning = document.getElementById('pendingWarning');
-    
-    // Nếu dropdown trống thì không được mở nút
     const isProjectEmpty = document.getElementById('selectLeadProject').options.length === 0 || document.getElementById('selectLeadProject').value === "";
     
     if (myPendingLeads.length > 0) {
@@ -327,19 +319,25 @@
     myPendingLeads.forEach((lead, index) => {
       const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
       const col = document.createElement('div'); col.className = 'col-md-6';
+      
+      // THAY ĐỔI LỚN: GỘP NÚT BỎ QUA CHO UI/UX QUIET LUXURY
       col.innerHTML = `
         <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1}</span>
+            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Lần phát thứ ${(lead.attempt_count || 0) + 1}</span>
             <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
           </div>
           <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name}</h4>
           <div class="fs-3 fw-bold mb-2" style="color: #0f172a;"><i class="ti ti-phone-call me-2 text-primary"></i>${lead.phone}</div>
           <div class="text-muted mb-4" style="font-size: 13px;"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${lead.project_name || 'Không rõ'}</span></div>
+          
           <div class="mt-auto d-flex gap-2">
-            <button class="btn btn-outline-warning btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Không nghe máy')"><i class="ti ti-phone-off fs-3"></i> K.Nghe Máy</button>
-            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Không nhu cầu')"><i class="ti ti-hand-stop fs-3"></i> K.Nhu Cầu</button>
-            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')"><i class="ti ti-star fs-3"></i> Tiềm Năng</button>
+            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
+              <i class="ti ti-phone-off fs-3"></i> BỎ QUA
+            </button>
+            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
+              <i class="ti ti-star fs-3"></i> TIỀM NĂNG
+            </button>
           </div>
         </div>
       `;
@@ -368,7 +366,7 @@
     } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
   }
 
-  // 6. BỐC SỐ TỰ ĐỘNG - ÁP DỤNG CHỐT CHẶN BẢO MẬT & CHỐNG TRÙNG (CHỐT CHẶN 2)
+  // 6. BỐC SỐ TỰ ĐỘNG - ÁP DỤNG CHỐT CHẶN BẢO MẬT & CHỐNG TRÙNG
   async function drawNewLeads() {
     const btn = document.getElementById('btnGetLeads');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
@@ -380,27 +378,21 @@
       const allowedProjects = window.currentUser.allowed_projects || [];
       const myId = window.currentUser.id;
 
-      // Bảo vệ tầng 2: Kể cả khi F12 mở khóa nút, nếu không có quyền vẫn chặn
       if (role === 'sales' && allowedProjects.length === 0) {
-        throw new Error("Tài khoản của bạn chưa được Quản trị viên cấp quyền khai thác dự án nào.");
+        throw new Error("Tài khoản của bạn chưa được cấp quyền khai thác dự án nào.");
       }
 
-      // Xây dựng câu lệnh Query
       let query = window.sbClient.from('marketing_leads')
         .select('id')
         .eq('status', 'Chưa phát')
-        .not('rejected_by', 'cs', `{${myId}}`); // KHÔNG BỐC LẠI CÁC SỐ MÌNH ĐÃ TỪNG BẤM "BỎ QUA"
+        .not('rejected_by', 'cs', `{${myId}}`); 
 
-      // Xử lý bộ lọc dự án nghiêm ngặt
       if (selectedProject !== 'all') {
-        // Bốc dự án cụ thể (Đã được lọc an toàn ở giao diện)
         query = query.eq('project_name', selectedProject);
       } else if (role === 'sales') {
-        // Bốc tất cả nhưng ép cứng chỉ được nằm trong danh sách cho phép
         query = query.in('project_name', allowedProjects);
       }
       
-      // Ưu tiên số ít bị từ chối nhất và cũ nhất
       const { data: readyLeads, error: errFetch } = await query
         .order('attempt_count', { ascending: true })
         .order('created_at', { ascending: true })
@@ -409,16 +401,13 @@
       if (errFetch) throw errFetch;
       
       if (!readyLeads || readyLeads.length === 0) {
-        Swal.fire({ icon: 'info', title: 'Kho cạn!', text: 'Không còn data phù hợp tiêu chí của bạn hoặc bạn đã lọc qua hết các số tồn đọng.', confirmButtonColor: '#146654' });
-        btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; 
-        btn.disabled = false; 
-        return;
+        Swal.fire({ icon: 'info', title: 'Kho cạn!', text: 'Không còn data phù hợp hoặc bạn đã lọc qua hết các số tồn đọng.', confirmButtonColor: '#146654' });
+        btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; return;
       }
 
       const leadIds = readyLeads.map(l => l.id);
       const vnTime = new Date().toISOString();
 
-      // Tiến hành update sở hữu
       const { error: errUpdate } = await window.sbClient.from('marketing_leads')
         .update({ status: 'Đã phát', assigned_to: myId, assigned_at: vnTime })
         .in('id', leadIds);
@@ -433,30 +422,52 @@
       
     } catch (error) { 
       Swal.fire('Lỗi bảo mật', error.message, 'error'); 
-      btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; 
-      btn.disabled = false; 
+      btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; 
     }
   }
 
-  // 7. GHI NHẬN BÁO CÁO
+  // 7. XỬ LÝ NÚT BỎ QUA - BẬT POPUP CHỌN LÝ DO
+  async function handleRejection(leadId) {
+    const { value: reason } = await Swal.fire({
+      title: 'Lý do bỏ qua data này?',
+      input: 'radio',
+      inputOptions: {
+        'Không nghe máy': 'Không nghe máy',
+        'Không nhu cầu': 'Không có nhu cầu',
+        'Rác/Spam': 'Số Rác / Spam / Thuê bao'
+      },
+      inputValidator: (value) => {
+        if (!value) return 'Vui lòng chọn 1 lý do!'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Xác nhận Bỏ qua',
+      cancelButtonText: 'Đóng',
+      confirmButtonColor: '#e11d48'
+    });
+
+    if (reason) {
+      submitQuickReport(leadId, reason);
+    }
+  }
+
+  // 8. GHI NHẬN BÁO CÁO QUA RPC
   async function submitQuickReport(leadId, reportType) {
     const card = document.getElementById(`lead-card-${leadId}`);
     card.style.opacity = '0.5'; 
     try {
-      const myId = window.currentUser.id;
-      
-      // XỬ LÝ LÝ DO BỎ QUA - ĐẨY ID VÀO MẢNG REJECTED_BY
-      if (reportType === 'Không nghe máy' || reportType === 'Không nhu cầu') {
-        const { error } = await window.sbClient.rpc('report_marketing_lead', {
-          p_lead_id: leadId, p_sales_id: myId, p_report: reportType
-        });
-        if (error) throw error;
-      } else {
-        // XỬ LÝ CHUYỂN TIỀM NĂNG
-        const { error } = await window.sbClient.from('marketing_leads').update({ quick_report: reportType, status: 'Đã xử lý' }).eq('id', leadId);
-        if (error) throw error;
+      // SỬ DỤNG RPC ĐỂ ĐẢM BẢO CHẠY LOGIC CHỐNG TRÙNG VÀ ĐẾM SỐ LẦN ĐÃ VIẾT Ở BƯỚC 1
+      const { error } = await window.sbClient.rpc('report_marketing_lead', {
+        p_lead_id: leadId,
+        p_sales_id: window.currentUser.id,
+        p_report: reportType
+      });
 
+      if (error) throw error;
+
+      // NẾU TIỀM NĂNG -> BAY SANG TAB KHÁCH HÀNG & MỞ POPUP AUTO-FILL
+      if (reportType === 'Tiềm năng') {
         const leadData = myPendingLeads.find(l => l.id === leadId);
+        const myId = window.currentUser.id; 
         const myName = window.currentUser.full_name; 
         
         switchPage('khachhang');
@@ -481,14 +492,19 @@
         }
       }
 
-      // Xóa thẻ DOM sau khi xử lý thành công
+      // Thông báo thành công nhỏ gọn
+      Swal.fire({
+        toast: true, position: 'bottom-end', icon: 'success', 
+        title: `Đã báo cáo: ${reportType}`, showConfirmButton: false, timer: 3000
+      });
+
       myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
       await loadMyAssignedLeads();
       if (window.currentUser.role === 'admin' || window.currentUser.role === 'system') { loadAdminDashboard(); loadAdminSalesStats(); }
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
   }
 
-  // 8. IMPORT BẰNG PAPAPARSE
+  // 9. IMPORT BẰNG PAPAPARSE
   function handleImportData() {
     const url = document.getElementById('inputSheetUrl').value.trim();
     if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
