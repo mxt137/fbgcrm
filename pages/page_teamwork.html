@@ -1,0 +1,552 @@
+<style>
+  .chat-box { max-height: 500px; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 12px; }
+  .chat-box::-webkit-scrollbar { width: 4px; }
+  .chat-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .chat-message { background: white; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13.5px; }
+  .chat-message.system { background: #f1f5f9; border-color: transparent; font-style: italic; }
+  .chat-message.proposal { background: #fff1f2; border: 1px solid #fecdd3; border-left: 4px solid #e11d48; }
+  
+  .customer-row { cursor: pointer; transition: background 0.2s; }
+  .customer-row:hover, .customer-row.active { background-color: rgba(20, 102, 84, 0.05); }
+  
+  .proposal-alert { background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2); }
+</style>
+
+<div class="page-header d-print-none mt-4">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
+          <i class="ti ti-users-group me-2"></i> Không Gian Làm Việc Nhóm
+        </h2>
+        <div class="text-muted mt-1" style="font-size: 13px;">Thảo luận, phối hợp và đưa ra đề xuất chốt khách hàng</div>
+      </div>
+      <div class="col-auto ms-auto d-flex gap-2">
+        <select id="teamSelector" class="form-select fw-bold" style="min-width: 200px; color: #146654;" onchange="changeActiveTeam()">
+          <option value="">-- Chọn Team của bạn --</option>
+        </select>
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-manage-team" onclick="openManageTeamModal()">
+          <i class="ti ti-settings me-2"></i> Quản lý Team
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row g-4" id="teamWorkWorkspace" style="display: none;">
+      
+      <!-- CỘT TRÁI: DANH SÁCH KHÁCH HÀNG CỦA TEAM -->
+      <div class="col-lg-7">
+        <div class="card shadow-sm" style="border-radius: 12px; height: 100%;">
+          <div class="card-header d-flex justify-content-between align-items-center" style="background: #f8fafc; border-radius: 12px 12px 0 0;">
+            <h3 class="card-title fw-bold m-0" style="color: #0f172a;"><i class="ti ti-users me-2 text-primary"></i>Khách hàng trong Team</h3>
+            <button class="btn btn-sm btn-brand" data-bs-toggle="modal" data-bs-target="#modal-team-customer" onclick="openTeamCustomerModal()">
+              <i class="ti ti-plus me-1"></i> Thêm Khách
+            </button>
+          </div>
+          <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
+            <table class="table table-vcenter table-hover text-nowrap m-0">
+              <thead style="position: sticky; top: 0; z-index: 1;">
+                <tr>
+                  <th class="ps-3">KHÁCH HÀNG</th>
+                  <th>NHU CẦU</th>
+                  <th>TRẠNG THÁI</th>
+                  <th class="text-center"><i class="ti ti-settings"></i></th>
+                </tr>
+              </thead>
+              <tbody id="teamCustomerList">
+                <tr><td colspan="4" class="text-center py-5 text-muted">Đang tải danh sách...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CỘT PHẢI: KHU VỰC THẢO LUẬN & ĐỀ XUẤT -->
+      <div class="col-lg-5">
+        <div class="card shadow-sm d-flex flex-column" style="border-radius: 12px; height: 100%; min-height: 650px;">
+          
+          <div class="card-header" style="background: #f8fafc; border-radius: 12px 12px 0 0;">
+            <div>
+              <h3 class="card-title fw-bold m-0" style="color: #0f172a;" id="chatTitle"><i class="ti ti-messages me-2 text-primary"></i>Khu vực Thảo luận</h3>
+              <div class="text-muted mt-1" style="font-size: 11px;" id="chatSubtitle">Hãy chọn một khách hàng bên trái để xem logs</div>
+            </div>
+          </div>
+
+          <div class="card-body flex-grow-1 p-3" style="background: #f1f5f9;">
+            
+            <!-- KHU VỰC BÔI ĐỎ ĐỀ XUẤT QUAN TRỌNG -->
+            <div id="proposalAlertBox" class="proposal-alert mb-3" style="display: none;">
+              <div class="d-flex align-items-center mb-1">
+                <i class="ti ti-alert-triangle fs-2 me-2"></i>
+                <span class="fw-bold text-uppercase" style="letter-spacing: 0.5px;">ĐỀ XUẤT XỬ LÝ (QUAN TRỌNG)</span>
+              </div>
+              <div id="proposalAlertText" style="font-size: 13.5px; white-space: pre-wrap;"></div>
+            </div>
+
+            <!-- KHUNG HIỂN THỊ LOGS -->
+            <div class="chat-box" id="teamLogsBox">
+              <div class="text-center py-5 text-muted">
+                <i class="ti ti-messages text-muted mb-2" style="font-size: 40px; opacity: 0.3;"></i><br>
+                Chọn một khách hàng để bắt đầu thảo luận
+              </div>
+            </div>
+          </div>
+
+          <!-- KHUNG NHẬP LIỆU -->
+          <div class="card-footer bg-white p-3 border-top" style="border-radius: 0 0 12px 12px;">
+            <form id="chatForm" onsubmit="event.preventDefault(); submitTeamLog();">
+              <div class="mb-2">
+                <textarea id="chatInput" class="form-control" rows="2" placeholder="Nhập báo cáo tương tác hoặc ý kiến thảo luận..." required disabled style="resize: none; border-radius: 8px;"></textarea>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <label class="form-check m-0">
+                  <input class="form-check-input" type="checkbox" id="chatIsProposal" disabled>
+                  <span class="form-check-label text-danger fw-bold" style="font-size: 12px;">Ghi đè Đề xuất quan trọng</span>
+                </label>
+                <button type="submit" id="btnSendChat" class="btn btn-brand" disabled>
+                  <i class="ti ti-send me-1"></i> Gửi Logs
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MÀN HÌNH CHÀO KHI CHƯA CHỌN TEAM -->
+    <div id="emptyWorkspace" class="text-center py-5">
+      <i class="ti ti-users-group text-muted mb-3" style="font-size: 80px; opacity: 0.2;"></i>
+      <h2 class="fw-bold" style="color: #146654;">Không Gian Làm Việc Nhóm</h2>
+      <p class="text-muted">Bạn chưa chọn Team nào. Vui lòng chọn ở phía trên hoặc tạo Team mới.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: QUẢN LÝ TEAM VÀ THÊM THÀNH VIÊN -->
+<!-- ============================================== -->
+<div class="modal modal-blur fade" id="modal-manage-team" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg" style="border-radius: 12px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); color: white;">
+        <h5 class="modal-title fw-bold"><i class="ti ti-settings me-2"></i> Quản lý Team</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h4 class="fw-bold text-primary mb-3">Tạo Team Mới</h4>
+        <div class="d-flex gap-2 mb-4">
+          <input type="text" id="newTeamName" class="form-control" placeholder="Tên Team (VD: Biệt đội chốt sale...)">
+          <button class="btn btn-brand" onclick="createNewTeam()"><i class="ti ti-plus"></i></button>
+        </div>
+
+        <hr>
+
+        <h4 class="fw-bold text-primary mb-3 mt-4">Thêm thành viên vào Team hiện tại</h4>
+        <div class="d-flex gap-2">
+          <select id="selectMemberToAdd" class="form-select">
+            <option value="">-- Đang tải nhân sự --</option>
+          </select>
+          <button class="btn btn-success" onclick="addMemberToTeam()"><i class="ti ti-user-plus"></i> Thêm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: THÊM / SỬA KHÁCH HÀNG TEAM -->
+<!-- ============================================== -->
+<div class="modal modal-blur fade" id="modal-team-customer" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg" style="border-radius: 12px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); color: white;">
+        <h5 class="modal-title fw-bold"><i class="ti ti-user-plus me-2"></i> Khách Hàng (Team Work)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btnCloseTeamCusModal"></button>
+      </div>
+      <form onsubmit="event.preventDefault(); saveTeamCustomer();">
+        <div class="modal-body p-4">
+          <input type="hidden" id="tcId">
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Tên khách hàng *</label>
+              <input type="text" id="tcName" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Số điện thoại *</label>
+              <input type="text" id="tcPhone" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Nhu cầu chi tiết</label>
+              <input type="text" id="tcDemand" class="form-control" placeholder="VD: Mua đầu tư, căn 2PN...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Trạng thái tiến độ</label>
+              <select id="tcStatus" class="form-select fw-bold text-primary">
+                <option value="potential">Đang chăm sóc (Tiềm năng)</option>
+                <option value="waiting">Chờ quyết định</option>
+                <option value="success">Đã chốt (Win)</option>
+                <option value="failed">Thất bại (Lose)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-danger"><i class="ti ti-alert-triangle me-1"></i> Đề xuất xử lý (Dành cho Team)</label>
+            <textarea id="tcProposal" class="form-control bg-red-lt border-red text-danger fw-medium" rows="3" placeholder="Ghi chú đề xuất tại đây. Dòng này sẽ được bôi đỏ trong bảng tin của Team để mọi người chú ý..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-brand" id="btnSaveTC"><i class="ti ti-device-floppy me-2"></i> Lưu dữ liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  let myTeams = [];
+  let currentTeamId = null;
+  let activeCustomerId = null;
+  let allMembers = [];
+
+  // =====================================
+  // 1. KHỞI TẠO MODULE
+  // =====================================
+  async function loadTeamWorkModule() {
+    await fetchAllMembers();
+    await fetchMyTeams();
+  }
+
+  async function fetchAllMembers() {
+    const { data } = await window.sbClient.from('safe_members').select('id, full_name').eq('is_active', true);
+    if(data) {
+      allMembers = data;
+      let opts = '<option value="">-- Chọn nhân sự --</option>';
+      data.forEach(m => opts += `<option value="${m.id}">${m.full_name}</option>`);
+      document.getElementById('selectMemberToAdd').innerHTML = opts;
+    }
+  }
+
+  // Lấy các team mà User đang tham gia
+  async function fetchMyTeams() {
+    const myId = window.currentUser.id;
+    // Dùng query join qua bảng trung gian team_members
+    const { data, error } = await window.sbClient
+      .from('team_members')
+      .select('team_id, teams(id, name)')
+      .eq('member_id', myId);
+
+    const selector = document.getElementById('teamSelector');
+    if (error || !data || data.length === 0) {
+      selector.innerHTML = '<option value="">-- Bạn chưa có Team --</option>';
+      return;
+    }
+
+    myTeams = data.map(item => item.teams);
+    let opts = '<option value="">-- Chọn Team của bạn --</option>';
+    myTeams.forEach(t => opts += `<option value="${t.id}">${t.name}</option>`);
+    selector.innerHTML = opts;
+  }
+
+  // =====================================
+  // 2. QUẢN LÝ TEAM (TẠO MỚI / THÊM NGƯỜI)
+  // =====================================
+  async function createNewTeam() {
+    const name = document.getElementById('newTeamName').value.trim();
+    if (!name) return;
+    try {
+      // 1. Tạo Team
+      const { data: team, error: err1 } = await window.sbClient.from('teams').insert([{ name: name, created_by: window.currentUser.id }]).select().single();
+      if (err1) throw err1;
+      
+      // 2. Gán người tạo vào Team
+      const { error: err2 } = await window.sbClient.from('team_members').insert([{ team_id: team.id, member_id: window.currentUser.id }]);
+      if (err2) throw err2;
+
+      Swal.fire({ icon: 'success', title: 'Tạo Team thành công', timer: 1500, showConfirmButton: false });
+      document.getElementById('newTeamName').value = '';
+      await fetchMyTeams();
+    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
+  }
+
+  async function addMemberToTeam() {
+    const teamId = document.getElementById('teamSelector').value;
+    const memberId = document.getElementById('selectMemberToAdd').value;
+    if (!teamId) { Swal.fire('Lưu ý', 'Hãy chọn Team ở bên ngoài trước khi thêm người!', 'warning'); return; }
+    if (!memberId) return;
+
+    try {
+      const { error } = await window.sbClient.from('team_members').insert([{ team_id: teamId, member_id: memberId }]);
+      if (error) {
+        if(error.code === '23505') throw new Error('Thành viên này đã có trong Team!');
+        throw error;
+      }
+      Swal.fire({ icon: 'success', title: 'Đã thêm vào Team', timer: 1500, showConfirmButton: false });
+    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
+  }
+
+  // =====================================
+  // 3. XỬ LÝ CHỌN TEAM VÀ LOAD KHÁCH HÀNG
+  // =====================================
+  function changeActiveTeam() {
+    currentTeamId = document.getElementById('teamSelector').value;
+    if (currentTeamId) {
+      document.getElementById('emptyWorkspace').style.display = 'none';
+      document.getElementById('teamWorkWorkspace').style.display = 'flex';
+      
+      // Reset cột phải
+      activeCustomerId = null;
+      document.getElementById('chatTitle').innerHTML = '<i class="ti ti-messages me-2 text-primary"></i>Khu vực Thảo luận';
+      document.getElementById('chatSubtitle').innerText = 'Hãy chọn một khách hàng bên trái để xem logs';
+      document.getElementById('teamLogsBox').innerHTML = '<div class="text-center py-5 text-muted"><i class="ti ti-messages text-muted mb-2" style="font-size: 40px; opacity: 0.3;"></i><br>Chọn một khách hàng để bắt đầu</div>';
+      document.getElementById('proposalAlertBox').style.display = 'none';
+      
+      document.getElementById('chatInput').disabled = true;
+      document.getElementById('chatIsProposal').disabled = true;
+      document.getElementById('btnSendChat').disabled = true;
+
+      loadTeamCustomers();
+    } else {
+      document.getElementById('emptyWorkspace').style.display = 'block';
+      document.getElementById('teamWorkWorkspace').style.display = 'none';
+    }
+  }
+
+  async function loadTeamCustomers() {
+    const tbody = document.getElementById('teamCustomerList');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tải...</td></tr>';
+    
+    const { data, error } = await window.sbClient.from('team_customers').select('*').eq('team_id', currentTeamId).order('updated_at', { ascending: false });
+    
+    if (error) { tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải dữ liệu</td></tr>'; return; }
+    if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">Team chưa có khách hàng nào.</td></tr>'; return; }
+
+    tbody.innerHTML = '';
+    const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ QĐ', 'success': 'Đã chốt', 'failed': 'Thất bại' };
+    const colorMap = { 'potential': 'blue', 'waiting': 'orange', 'success': 'green', 'failed': 'red' };
+
+    data.forEach(cus => {
+      const tr = document.createElement('tr');
+      tr.className = 'customer-row';
+      tr.id = `tc-row-${cus.id}`;
+      tr.onclick = () => selectTeamCustomer(cus);
+      
+      tr.innerHTML = `
+        <td class="ps-3">
+          <div class="fw-bold text-dark">${cus.full_name}</div>
+          <div class="text-muted" style="font-size: 11px;"><i class="ti ti-phone me-1"></i>${cus.phone}</div>
+        </td>
+        <td class="text-muted" style="font-size: 13px; white-space: normal; max-width: 150px;">${cus.demand || '-'}</td>
+        <td><span class="badge bg-${colorMap[cus.lead_status]}-lt">${statusMap[cus.lead_status]}</span></td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-icon btn-outline-secondary border-0" onclick="event.stopPropagation(); openTeamCustomerModal('${cus.id}')">
+            <i class="ti ti-pencil"></i>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // =====================================
+  // 4. MỞ KHÁCH HÀNG & TẢI LOGS (CHAT)
+  // =====================================
+  let currentCustomerData = null;
+
+  async function selectTeamCustomer(cusData) {
+    activeCustomerId = cusData.id;
+    currentCustomerData = cusData;
+
+    // Đổi màu dòng
+    document.querySelectorAll('.customer-row').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tc-row-${cusData.id}`).classList.add('active');
+
+    // Mở khóa Form Chat
+    document.getElementById('chatTitle').innerHTML = `<i class="ti ti-user text-primary me-2"></i>${cusData.full_name}`;
+    document.getElementById('chatSubtitle').innerText = `${cusData.phone} | Nhu cầu: ${cusData.demand || '-'}`;
+    document.getElementById('chatInput').disabled = false;
+    document.getElementById('chatIsProposal').disabled = false;
+    document.getElementById('chatIsProposal').checked = false;
+    document.getElementById('btnSendChat').disabled = false;
+
+    // XỬ LÝ BÔI ĐỎ ĐỀ XUẤT NẾU CÓ
+    const alertBox = document.getElementById('proposalAlertBox');
+    if (cusData.proposal && cusData.proposal.trim() !== '') {
+      alertBox.style.display = 'block';
+      document.getElementById('proposalAlertText').innerText = cusData.proposal;
+    } else {
+      alertBox.style.display = 'none';
+    }
+
+    await loadTeamLogs();
+  }
+
+  async function loadTeamLogs() {
+    const box = document.getElementById('teamLogsBox');
+    box.innerHTML = '<div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tải Logs...</div>';
+
+    const { data, error } = await window.sbClient.from('team_logs').select('*').eq('team_customer_id', activeCustomerId).order('created_at', { ascending: false });
+
+    if (error) { box.innerHTML = '<div class="text-danger">Lỗi tải thảo luận.</div>'; return; }
+    
+    box.innerHTML = '';
+    if (!data || data.length === 0) {
+      box.innerHTML = '<div class="text-center py-4 text-muted">Chưa có thảo luận nào. Hãy gửi ý kiến đầu tiên!</div>';
+      return;
+    }
+
+    // Hiển thị từ dưới lên (cũ trên, mới dưới)
+    data.reverse().forEach(log => {
+      const isMe = log.member_id === window.currentUser.id;
+      const mem = allMembers.find(m => m.id === log.member_id);
+      const name = mem ? mem.full_name : 'Hệ thống';
+      const timeStr = new Date(log.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) + ' ' + new Date(log.created_at).toLocaleDateString('vi-VN');
+      
+      const div = document.createElement('div');
+      
+      // Phân loại style log
+      if (!log.member_id) {
+        div.className = 'chat-message system text-center mx-auto';
+        div.style.maxWidth = '80%';
+        div.innerHTML = `<i class="ti ti-info-circle me-1"></i> ${log.content} <div style="font-size: 10px; margin-top: 4px; opacity: 0.6;">${timeStr}</div>`;
+      } else {
+        const alignClass = isMe ? 'ms-auto' : 'me-auto';
+        const colorClass = isMe ? 'bg-blue-lt border-blue' : (log.is_proposal ? 'proposal' : '');
+        const alignText = isMe ? 'text-end' : 'text-start';
+
+        div.className = `chat-message ${alignClass} ${colorClass}`;
+        div.style.maxWidth = '85%';
+        div.innerHTML = `
+          <div class="fw-bold text-dark mb-1 ${alignText}" style="font-size: 11px;">
+            ${isMe ? '' : `<i class="ti ti-user me-1"></i> ${name} - `} ${timeStr}
+          </div>
+          <div style="white-space: pre-wrap;">${log.content}</div>
+        `;
+      }
+      box.appendChild(div);
+    });
+
+    // Cuộn xuống cuối cùng
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // =====================================
+  // 5. GỬI LOG MỚI HOẶC ĐỀ XUẤT
+  // =====================================
+  async function submitTeamLog() {
+    const input = document.getElementById('chatInput');
+    const isProposal = document.getElementById('chatIsProposal').checked;
+    const content = input.value.trim();
+    if (!content || !activeCustomerId) return;
+
+    input.disabled = true;
+    try {
+      const vnTime = new Date().toISOString();
+
+      // Nếu tick là đề xuất -> Phải update cả bảng Team Customer để báo động đỏ
+      if (isProposal) {
+        await window.sbClient.from('team_customers').update({ 
+          proposal: content, updated_at: vnTime 
+        }).eq('id', activeCustomerId);
+        
+        // Update UI Alert tức thì
+        document.getElementById('proposalAlertBox').style.display = 'block';
+        document.getElementById('proposalAlertText').innerText = content;
+        currentCustomerData.proposal = content; // Sync local
+      }
+
+      // Ghi log
+      await window.sbClient.from('team_logs').insert([{
+        team_customer_id: activeCustomerId,
+        member_id: window.currentUser.id,
+        content: content,
+        is_proposal: isProposal,
+        created_at: vnTime
+      }]);
+
+      input.value = '';
+      document.getElementById('chatIsProposal').checked = false;
+      await loadTeamLogs();
+
+    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
+    finally { input.disabled = false; input.focus(); }
+  }
+
+  // =====================================
+  // 6. THÊM / SỬA KHÁCH TEAM (MODAL)
+  // =====================================
+  async function openTeamCustomerModal(id = null) {
+    if (!currentTeamId) { Swal.fire('Lưu ý', 'Hãy chọn Team trước!', 'warning'); return; }
+    document.getElementById('tcId').value = id || '';
+    
+    if (id) {
+      // Lấy từ DB hoặc cache (tạm fetch nhanh từ DB cho chuẩn)
+      const { data } = await window.sbClient.from('team_customers').select('*').eq('id', id).single();
+      if(data) {
+        document.getElementById('tcName').value = data.full_name;
+        document.getElementById('tcPhone').value = data.phone;
+        document.getElementById('tcDemand').value = data.demand || '';
+        document.getElementById('tcStatus').value = data.lead_status;
+        document.getElementById('tcProposal').value = data.proposal || '';
+      }
+    } else {
+      document.getElementById('tcName').value = '';
+      document.getElementById('tcPhone').value = '';
+      document.getElementById('tcDemand').value = '';
+      document.getElementById('tcStatus').value = 'potential';
+      document.getElementById('tcProposal').value = '';
+    }
+  }
+
+  async function saveTeamCustomer() {
+    const btn = document.getElementById('btnSaveTC');
+    btn.disabled = true; btn.innerHTML = 'Đang lưu...';
+    
+    const id = document.getElementById('tcId').value;
+    const vnTime = new Date().toISOString();
+    
+    const payload = {
+      team_id: currentTeamId,
+      full_name: document.getElementById('tcName').value,
+      phone: document.getElementById('tcPhone').value,
+      demand: document.getElementById('tcDemand').value,
+      lead_status: document.getElementById('tcStatus').value,
+      proposal: document.getElementById('tcProposal').value || null,
+      updated_at: vnTime
+    };
+
+    try {
+      if (id) {
+        await window.sbClient.from('team_customers').update(payload).eq('id', id);
+        // Bắn 1 log system nhẹ báo đã update
+        await window.sbClient.from('team_logs').insert([{
+          team_customer_id: id, content: `${window.currentUser.full_name} đã cập nhật thông tin / đề xuất.`, created_at: vnTime
+        }]);
+      } else {
+        payload.created_by = window.currentUser.id;
+        const { data } = await window.sbClient.from('team_customers').insert([payload]).select().single();
+        await window.sbClient.from('team_logs').insert([{
+          team_customer_id: data.id, content: `Khách hàng được đưa vào Team bởi ${window.currentUser.full_name}.`, created_at: vnTime
+        }]);
+      }
+      
+      document.getElementById('btnCloseTeamCusModal').click();
+      Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
+      
+      await loadTeamCustomers();
+      if(id && id === activeCustomerId) selectTeamCustomer({id: id, ...payload}); // Cập nhật luôn màn hình chat nếu đang mở
+    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy me-2"></i> Lưu dữ liệu'; }
+  }
+</script>
