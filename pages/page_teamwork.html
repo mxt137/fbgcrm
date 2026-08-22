@@ -515,7 +515,7 @@
     }
 
     tbody.innerHTML = '';
-    const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ QĐ', 'success': 'Đã chốt', 'failed': 'Thất bại' };
+    const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ Quyết định', 'success': 'Đã chốt', 'failed': 'Thất bại' };
     const colorMap = { 'potential': 'blue', 'waiting': 'orange', 'success': 'green', 'failed': 'red' };
     const myId = window.currentUser.id;
 
@@ -777,7 +777,7 @@
     };
 
     const normalize = (val) => (val === "" || val === undefined) ? null : val;
-    const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ QĐ', 'success': 'Đã chốt', 'failed': 'Thất bại' };
+    const statusMap = { 'potential': 'Tiềm năng', 'waiting': 'Chờ Quyết định', 'success': 'Đã chốt', 'failed': 'Thất bại' };
 
     try {
       if (id) {
