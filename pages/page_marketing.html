@@ -489,7 +489,23 @@
           setTimeout(() => {
             document.getElementById('cusName').value = leadData.customer_name;
             document.getElementById('cusPhone').value = leadData.phone;
-            document.getElementById('cusSource').value = 'Other'; document.getElementById('cusStatus').value = 'potential'; document.getElementById('cusGroup').value = 'Buyer'; 
+            document.getElementById('cusStatus').value = 'potential'; 
+            
+            // XỬ LÝ AUTO-FILL NGUỒN KHÁCH HÀNG TỪ MARKETING SANG
+            const sourceVal = leadData.source || 'Khác';
+            const sourceSelect = document.getElementById('cusSource');
+            if (sourceSelect) {
+              // Nếu nguồn từ Marketing chưa có sẵn trong Dropdown, tự động tạo thêm Option
+              if (!sourceSelect.querySelector(`option[value="${sourceVal}"]`)) {
+                const opt = document.createElement('option');
+                opt.value = sourceVal;
+                opt.text = sourceVal;
+                sourceSelect.appendChild(opt);
+              }
+              sourceSelect.value = sourceVal; 
+            }
+
+            // Xử lý tự động chọn Sales
             const assignInput = document.getElementById('cusAssigned');
             if (assignInput) {
               if (!assignInput.querySelector(`option[value="${myId}"]`)) {
@@ -497,9 +513,12 @@
               }
               assignInput.value = myId; 
             }
+
+            // Ghi chú và Kho Data
+            document.getElementById('cusDataSource').value = 'Data Công ty';
             document.getElementById('cusNotes').focus();
             document.getElementById('cusNotes').value = `[Từ Kho Data Marketing - Dự án: ${leadData.project_name || 'Không rõ'}]\n`;
-          }, 600); 
+          }, 600);
         }
       }
 
