@@ -1,13 +1,11 @@
 <style>
   .filter-bar { background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--tblr-border-color); }
   .modal-xl { max-width: 1140px; }
-  .section-title { font-size: 11px; font-weight: 700; color: #146654; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px; }
   .timeline-box { max-height: 550px; overflow-y: auto; padding-right: 10px; }
   .timeline-box::-webkit-scrollbar { width: 4px; }
   .timeline-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   .log-item-content { background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 2px 4px rgba(0,0,0,0.02); font-size: 13px; margin-top: 8px; }
   .log-line { margin-bottom: 4px; }
-  .log-line strong { font-weight: 600; color: #475569; display: inline-block; width: 100px; }
 </style>
 
 <div class="page-header d-print-none mt-4">
@@ -15,9 +13,9 @@
     <div class="row g-2 align-items-center">
       <div class="col">
         <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
-          <i class="ti ti-address-book me-2"></i> Data Khách hàng
+          <i class="ti ti-address-book me-2"></i> Data Khách Hàng Cá Nhân
         </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Quản lý phễu dữ liệu và tiến độ chăm sóc khách hàng</div>
+        <div class="text-muted mt-1" style="font-size: 13px;">Khu vực bảo mật: Chỉ hiển thị dữ liệu do bạn sở hữu</div>
       </div>
       <div class="col-auto ms-auto d-print-none d-flex gap-3 align-items-center">
         <div class="btn-group" role="group">
@@ -39,40 +37,43 @@
 <div class="page-body">
   <div class="container-xl">
     
-    <div class="filter-bar row g-2">
+    <!-- THANH TÌM KIẾM & BỘ LỌC (ĐÃ BỎ LỌC SALES) -->
+    <div class="filter-bar row g-3">
+      <div class="col-md-4">
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
+          <input type="text" id="filterSearch" class="form-control fw-medium" placeholder="Tìm tên, SĐT khách hàng..." onkeyup="applyFilter()">
+        </div>
+      </div>
       <div class="col-md-3">
         <div class="input-icon">
-          <span class="input-icon-addon"><i class="ti ti-search"></i></span>
-          <input type="text" id="filterSearch" class="form-control" placeholder="Tìm tên, SĐT..." onkeyup="applyFilter()">
+          <span class="input-icon-addon"><i class="ti ti-chart-pie text-muted"></i></span>
+          <select id="filterStatus" class="form-select fw-medium" onchange="applyFilter()">
+            <option value="all">Trạng thái (Tất cả)</option>
+            <option value="potential">Tiềm năng</option>
+            <option value="unqualified">Hết nhu cầu</option>
+          </select>
         </div>
       </div>
       <div class="col-md-2">
-        <select id="filterGroup" class="form-select" onchange="applyFilter()">
-          <option value="all">Tất cả Nhóm</option>
-          <option value="Buyer">Khách dự án</option>
-          <option value="Owner">Chủ nhà</option>
-          <option value="Tenant">Khách thuê</option>
-        </select>
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-map-pin text-muted"></i></span>
+          <input type="text" id="filterCity" class="form-control fw-medium" placeholder="Tỉnh thành..." onkeyup="applyFilter()">
+        </div>
       </div>
       <div class="col-md-2">
-        <select id="filterProject" class="form-select" onchange="applyFilter()">
-          <option value="all">Tất cả Dự án</option>
-          <option value="none">-- Không thuộc dự án --</option>
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-world text-muted"></i></span>
+          <select id="filterSource" class="form-select fw-medium" onchange="applyFilter()">
+            <option value="all">Nguồn (Tất cả)</option>
+            <option value="Facebook Ads">Facebook Ads</option>
+            <option value="Google Ads">Google Ads</option>
+            <option value="Tiktok">Tiktok</option>
+            <option value="Zalo">Zalo</option>
+            <option value="Giới thiệu">Giới thiệu</option>
+            <option value="Khác">Nguồn khác</option>
           </select>
-      </div>
-      <div class="col-md-2">
-        <select id="filterStatus" class="form-select" onchange="applyFilter()">
-          <option value="all">Tất cả Trạng thái</option>
-          <option value="new">Mới tinh (Chưa LH)</option>
-          <option value="contacted">Đã liên hệ</option>
-          <option value="potential">Tiềm năng</option>
-          <option value="unqualified">Không nhu cầu</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <select id="filterSales" class="form-select" onchange="applyFilter()">
-          <option value="all">Tất cả Sales</option>
-        </select>
+        </div>
       </div>
       <div class="col-md-1">
         <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" title="Tải lại" onclick="resetFilter()">
@@ -81,6 +82,7 @@
       </div>
     </div>
 
+    <!-- BẢNG DANH SÁCH KHÁCH HÀNG -->
     <div id="customerTableCard" class="card" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
       <div class="table-responsive">
         <table class="table table-vcenter card-table table-hover text-nowrap">
@@ -89,24 +91,24 @@
               <th class="w-1 text-center">STT</th>
               <th>KHÁCH HÀNG</th>
               <th>THÀNH PHỐ</th>
-              <th>PHÂN LOẠI</th>
+              <th>NGUỒN / KHO DATA</th>
               <th>TRẠNG THÁI</th>
-              <th>SALES PHỤ TRÁCH</th>
-              <th>CẬP NHẬT GẦN NHẤT</th>
+              <th>PHỤ TRÁCH</th>
+              <th>CẬP NHẬT CUỐI</th>
               <th class="text-center">THAO TÁC</th>
             </tr>
           </thead>
           <tbody id="customerTableBody">
-            <tr><td colspan="9" class="text-center text-muted py-4">Đang tải dữ liệu từ máy chủ...</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span> Đang tải dữ liệu...</td></tr>
           </tbody>
         </table>
       </div>
-      <div id="paginationControls" class="card-footer d-flex align-items-center" style="background: #fff;"></div>
+      <div id="paginationControls" class="card-footer d-flex align-items-center bg-white border-top-0"></div>
     </div>
 
+    <!-- BẢNG KANBAN BOARD -->
     <div id="kanbanContainer" style="display: none; margin-top: 20px;">
-      <div class="kanban-wrapper" id="kanbanWrapper">
-        </div>
+      <div class="kanban-wrapper" id="kanbanWrapper"></div>
     </div>
 
   </div>
@@ -114,14 +116,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
+<!-- MODAL THÊM / SỬA KHÁCH HÀNG (ĐÃ GỌT DŨA CHUẨN DATABASE) -->
 <div class="modal modal-blur fade" id="modal-customer" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content shadow-lg" style="border-radius: 12px; border: none; overflow: hidden;">
       
-      <!-- HEADER MODAL -->
+      <!-- HEADER -->
       <div class="modal-header" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); color: white; border-bottom: none; padding: 20px 24px;">
         <h5 class="modal-title fs-3" id="modalTitleCustomer" style="font-weight: 700; letter-spacing: 0.5px;">
-          <i class="ti ti-user-plus me-2"></i>Thêm Khách Hàng Mới
+          <i class="ti ti-user-plus me-2"></i> Hồ Sơ Khách Hàng
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="btnCloseCustomerModal"></button>
       </div>
@@ -129,182 +132,145 @@
       <div class="modal-body p-0">
         <div class="row g-0">
           
-          <!-- CỘT TRÁI: FORM NHẬP LIỆU (7/12) -->
+          <!-- CỘT TRÁI: FORM NHẬP LIỆU -->
           <div class="col-lg-7 p-4 p-md-5 border-end">
             <form id="customerForm" onsubmit="event.preventDefault(); saveCustomer();">
               <input type="hidden" id="customerId">
               
-              <!-- PHÂN KHU 1: PHỤ TRÁCH KHÁCH -->
+              <!-- SECTION 1: PHỤ TRÁCH -->
               <div class="mb-3">
-                 <h3 class="fw-bold" style="color: #146654; font-size: 15px; letter-spacing: 0.3px;"><i class="ti ti-user-share me-2"></i>1. Nhân Sự Phụ Trách</h3>
+                 <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-headset me-2"></i>1. Sales Phụ Trách</h3>
                  <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
               </div>
               <div class="mb-4">
                 <div class="input-icon">
-                  <span class="input-icon-addon"><i class="ti ti-headset text-muted"></i></span>
-                  <select id="cusAssigned" class="form-select form-select-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1; font-weight: 500;"></select>
+                  <span class="input-icon-addon"><i class="ti ti-user-share text-muted"></i></span>
+                  <select id="cusAssigned" class="form-select form-select-lg fs-4 fw-medium" style="border-radius: 8px; border-color: #cbd5e1;"></select>
                 </div>
               </div>
 
-              <!-- PHÂN KHU 2: PHÂN LOẠI -->
+              <!-- SECTION 2: THÔNG TIN KHÁCH HÀNG -->
               <div class="mb-3 mt-4">
-                 <h3 class="fw-bold" style="color: #146654; font-size: 15px; letter-spacing: 0.3px;"><i class="ti ti-tags me-2"></i>2. Phân Loại Nhu Cầu</h3>
+                 <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-id me-2"></i>2. Thông Tin Liên Hệ</h3>
                  <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
-              </div>
-              <div class="row gx-3 mb-4">
-                <div class="col-md-6 mb-3 mb-md-0">
-                  <label class="form-label fw-medium required" style="font-size: 13px; color: #475569;">Nhóm khách hàng</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-users-group text-success"></i></span>
-                    <select id="cusGroup" class="form-select form-select-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1;">
-                      <option value="Buyer">🏢 Khách dự án</option>
-                      <option value="Owner">🔑 Chủ nhà (Ký gửi)</option>
-                      <option value="Tenant">💼 Khách đi thuê</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-medium" style="font-size: 13px; color: #475569;">Dự án quan tâm</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-building-skyscraper text-success"></i></span>
-                    <select id="cusProject" class="form-select form-select-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1;">
-                      <option value="">-- Không thuộc dự án nào --</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <!-- PHÂN KHU 3: THÔNG TIN CƠ BẢN -->
-              <div class="mb-3 mt-4">
-                 <h3 class="fw-bold" style="color: #146654; font-size: 15px; letter-spacing: 0.3px;"><i class="ti ti-id me-2"></i>3. Thông Tin Liên Hệ</h3>
-                 <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
-              </div>
-              <div class="row gx-3 mb-3">
-                <div class="col-md-6 mb-3 mb-md-0">
-                  <label class="form-label fw-medium required" style="font-size: 13px; color: #475569;">Tên khách hàng</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-user text-muted"></i></span>
-                    <input type="text" id="cusName" class="form-control form-control-lg fs-4 fw-bold" required style="border-radius: 8px; border-color: #cbd5e1; color: #1e293b;">
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-medium required" style="font-size: 13px; color: #475569;">Số điện thoại</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-phone text-muted"></i></span>
-                    <input type="text" id="cusPhone" class="form-control form-control-lg fs-4 fw-bold" required style="border-radius: 8px; border-color: #cbd5e1; color: #1e293b;">
-                  </div>
-                </div>
-              </div>
-
-              <div class="row gx-3 mb-3">
-                <div class="col-md-6 mb-3 mb-md-0">
-                  <label class="form-label fw-medium" style="font-size: 13px; color: #475569;">Thành phố</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-map-pin text-muted"></i></span>
-                    <!-- ĐÃ BỔ SUNG DATALIST CHO Ô THÀNH PHỐ -->
-                    <input type="text" id="cusCity" list="cityList" class="form-control form-control-lg fs-4" placeholder="VD: Hà Nội, Đà Nẵng..." style="border-radius: 8px; border-color: #cbd5e1;">
-                    <datalist id="cityList">
-                      <option value="Đà Nẵng"></option>
-                      <option value="Hà Nội"></option>
-                      <option value="Hồ Chí Minh"></option>
-                      <option value="Quảng Nam"></option>
-                    </datalist>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-medium required" style="font-size: 13px; color: #475569;">Nhu cầu chi tiết</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-target text-danger"></i></span>
-                    <select id="cusDemand" class="form-select form-select-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1;">
-                      <option value="">-- Chọn nhu cầu --</option>
-                      <option value="Ở, nghỉ dưỡng">🏡 Ở, nghỉ dưỡng</option>
-                      <option value="Đầu tư">📈 Đầu tư</option>
-                      <option value="Cho thuê/Bán lại">🔄 Cho thuê / Bán lại</option>
-                      <option value="Tìm hiểu thông tin">ℹ️ Tìm hiểu thông tin</option>
-                    </select>
-                  </div>
-                </div>
               </div>
               
+              <div class="mb-3">
+                <label class="form-label fw-medium required text-muted" style="font-size: 13px;">Họ và tên khách</label>
+                <div class="input-icon">
+                  <span class="input-icon-addon"><i class="ti ti-user"></i></span>
+                  <input type="text" id="cusName" class="form-control form-control-lg fs-4 fw-bold text-dark" required style="border-radius: 8px;">
+                </div>
+              </div>
+
               <div class="row gx-3 mb-3">
                 <div class="col-md-6 mb-3 mb-md-0">
-                  <label class="form-label fw-medium" style="font-size: 13px; color: #475569;">Địa chỉ Email</label>
+                  <label class="form-label fw-medium required text-muted" style="font-size: 13px;">Số điện thoại 1</label>
                   <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-mail text-muted"></i></span>
-                    <input type="email" id="cusEmail" class="form-control form-control-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1;">
+                    <span class="input-icon-addon"><i class="ti ti-phone text-primary"></i></span>
+                    <input type="text" id="cusPhone" class="form-control form-control-lg fs-4 fw-bold text-dark" required style="border-radius: 8px;">
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label fw-medium required" style="font-size: 13px; color: #475569;">Nguồn khách</label>
+                  <label class="form-label fw-medium text-muted" style="font-size: 13px;">Số điện thoại 2 (Nếu có)</label>
                   <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-world text-primary"></i></span>
-                    <select id="cusSource" class="form-select form-select-lg fs-4" style="border-radius: 8px; border-color: #cbd5e1;">
-                      <option value="Facebook">🔵 Facebook Ads</option>
-                      <option value="Google">🔴 Google Ads</option>
-                      <option value="Zalo">💬 Zalo</option>
-                      <option value="Hotline">📞 Hotline</option>
-                      <option value="GioiThieu">🤝 Giới thiệu</option>
-                      <option value="Other">🌐 Khác</option>
-                    </select>
+                    <span class="input-icon-addon"><i class="ti ti-phone-plus"></i></span>
+                    <input type="text" id="cusPhone2" class="form-control form-control-lg fs-4 fw-bold text-dark" style="border-radius: 8px;">
                   </div>
                 </div>
               </div>
 
-              <div class="row gx-3 mb-4">
-                <div class="col-md-6">
-                  <label class="form-label fw-bold required" style="font-size: 13px; color: #e11d48;">Trạng thái tiến độ</label>
-                  <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-chart-pie text-danger"></i></span>
-                    <select id="cusStatus" class="form-select form-select-lg fs-4 fw-bold" style="border-radius: 8px; border-color: #cbd5e1;">
-                      <option value="new" style="color: #3b82f6;">Mới nhập (Chưa LH)</option>
-                      <option value="contacted" style="color: #f59e0b;">Đã liên hệ</option>
-                      <option value="potential" style="color: #10b981;">Tiềm năng</option>
-                      <option value="unqualified" style="color: #64748b;">Không nhu cầu</option>
-                    </select>
-                  </div>
+              <div class="mb-4">
+                <label class="form-label fw-medium text-muted" style="font-size: 13px;">Thành phố</label>
+                <div class="input-icon">
+                  <span class="input-icon-addon"><i class="ti ti-map-pin text-danger"></i></span>
+                  <!-- Ô Thành phố dạng Datalist -->
+                  <input type="text" id="cusCity" list="cityList" class="form-control form-control-lg fs-4" placeholder="VD: Hà Nội, Đà Nẵng..." style="border-radius: 8px;">
+                  <datalist id="cityList">
+                    <option value="Đà Nẵng"></option>
+                    <option value="Hà Nội"></option>
+                    <option value="Hồ Chí Minh"></option>
+                    <option value="Quảng Nam"></option>
+                  </datalist>
                 </div>
               </div>
 
-              <!-- PHÂN KHU 4: CHI TIẾT CHĂM SÓC -->
+              <!-- SECTION 3: NGUỒN & TRẠNG THÁI -->
               <div class="mb-3 mt-4">
-                 <h3 class="fw-bold" style="color: #146654; font-size: 15px; letter-spacing: 0.3px;"><i class="ti ti-notes me-2"></i>4. Ghi Chú & Nhu Cầu</h3>
+                 <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-tags me-2"></i>3. Nguồn & Trạng Thái</h3>
+                 <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
+              </div>
+
+              <div class="row gx-3 mb-3">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-medium text-muted" style="font-size: 13px;">Nguồn khách</label>
+                  <div class="input-icon">
+                    <span class="input-icon-addon"><i class="ti ti-world"></i></span>
+                    <select id="cusSource" class="form-select form-select-lg fs-4 fw-medium" style="border-radius: 8px;">
+                      <option value="Facebook Ads">Facebook Ads</option>
+                      <option value="Google Ads">Google Ads</option>
+                      <option value="Tiktok">Tiktok</option>
+                      <option value="Zalo">Zalo</option>
+                      <option value="Giới thiệu">Khách Giới thiệu</option>
+                      <option value="Khác">Nguồn Khác</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium text-muted" style="font-size: 13px;">Kho Data</label>
+                  <div class="input-icon">
+                    <span class="input-icon-addon"><i class="ti ti-database text-warning"></i></span>
+                    <select id="cusDataSource" class="form-select form-select-lg fs-4 fw-bold" style="border-radius: 8px;">
+                      <option value="Data Công ty" style="color: #146654;">Data Công ty</option>
+                      <option value="Data cá nhân">Data cá nhân</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-bold text-danger" style="font-size: 13px;">Trạng thái khách hàng</label>
+                <div class="input-icon">
+                  <span class="input-icon-addon"><i class="ti ti-chart-pie text-danger"></i></span>
+                  <select id="cusStatus" class="form-select form-select-lg fs-4 fw-bold" style="border-radius: 8px;">
+                    <option value="potential" style="color: #10b981;">Tiềm năng</option>
+                    <option value="unqualified" style="color: #64748b;">Hết nhu cầu</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- SECTION 4: GHI CHÚ -->
+              <div class="mb-3 mt-4">
+                 <h3 class="fw-bold" style="color: #146654; font-size: 15px;"><i class="ti ti-notes me-2"></i>4. Ghi Chú Chăm Sóc</h3>
                  <hr class="mt-2 mb-3" style="border-color: #cbd5e1; opacity: 0.5;">
               </div>
               <div class="mb-4">
-                <textarea id="cusNotes" class="form-control" rows="4" placeholder="Nhập chi tiết về tài chính, khu vực quan tâm, hướng nhà, hoặc các yêu cầu đặc biệt khác của khách hàng..." style="border-radius: 8px; resize: none; background: #f8fafc; border: 1px dashed #94a3b8; padding: 16px; color: #1e293b; font-size: 13.5px;"></textarea>
+                <textarea id="cusNotes" class="form-control" rows="5" placeholder="Nhập chi tiết về nhu cầu, phản hồi của khách qua các lần gọi... Lưu ý: Mọi chỉnh sửa ở ô này đều được tự động lưu vào Lịch sử tương tác." style="border-radius: 8px; resize: none; background: #f8fafc; border: 1px dashed #94a3b8; padding: 16px; color: #1e293b; font-size: 14px; font-weight: 500;"></textarea>
               </div>
 
               <!-- BUTTONS -->
               <div class="d-flex justify-content-end gap-3 mt-5 pt-3 border-top">
                 <button type="button" class="btn btn-link link-secondary fw-medium text-decoration-none" data-bs-dismiss="modal">Hủy bỏ</button>
-                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnSaveCustomer" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); border: none; box-shadow: 0 4px 12px rgba(20, 102, 84, 0.25); border-radius: 8px; padding: 10px 24px; font-weight: 600; letter-spacing: 0.5px;">
+                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnSaveCustomer" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%); border: none; box-shadow: 0 4px 12px rgba(20, 102, 84, 0.25); border-radius: 8px; padding: 10px 24px; font-weight: 600;">
                   <i class="ti ti-device-floppy fs-3"></i> Lưu thông tin
                 </button>
               </div>
             </form>
           </div>
 
-          <!-- CỘT PHẢI: LỊCH SỬ TƯƠNG TÁC (5/12) -->
+          <!-- CỘT PHẢI: LỊCH SỬ CHĂM SÓC -->
           <div class="col-lg-5 p-4 p-md-5" style="background: #f8fafc;">
             <div class="d-flex flex-column h-100">
-              
               <div class="mb-3">
-                 <h3 class="fw-bold m-0" style="color: #0f172a; font-size: 16px; letter-spacing: 0.3px;"><i class="ti ti-history me-2 text-primary"></i>LỊCH SỬ TƯƠNG TÁC</h3>
-                 <div class="mt-2 fw-bold" style="color: #e11d48; font-size: 12px; font-style: italic;">* Lưu ý: Chỉ lưu giữ 5 lịch sử mới nhất</div>
+                 <h3 class="fw-bold m-0" style="color: #0f172a; font-size: 16px;"><i class="ti ti-history me-2 text-primary"></i>LỊCH SỬ CHĂM SÓC</h3>
+                 <div class="mt-2 fw-bold" style="color: #e11d48; font-size: 12px; font-style: italic;">* Lưu ý: Tự động ghi nhận khi sửa Ghi chú</div>
                  <hr class="mt-2 mb-4" style="border-color: #cbd5e1; opacity: 0.5;">
               </div>
-
-              <div class="timeline-box flex-grow-1 overflow-auto pe-2" style="max-height: 600px;">
+              <div class="timeline-box flex-grow-1 overflow-auto pe-2" style="max-height: 700px;">
                 <ul class="list list-timeline" id="customerTimeline">
-                  <li>
-                    <div class="text-muted text-center py-5 d-flex flex-column align-items-center">
-                      <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-                      <span style="font-size: 13px;">Đang tải lịch sử...</span>
-                    </div>
-                  </li>
+                  <li><div class="text-muted text-center py-5">Đang tải lịch sử...</div></li>
                 </ul>
               </div>
-              
             </div>
           </div>
 
@@ -317,43 +283,22 @@
 <script>
   let globalCustomers = [];
   let globalSales = [];
-  let globalProjectsForSelect = []; 
   
   let currentCustomerView = 'table';
   let currentPage = 1;
-  const itemsPerPage = 20; 
+  const itemsPerPage = 15; 
   let totalItems = 0;
   let searchTimeout = null;
 
-  // 1. TẢI DANH SÁCH SALES & DỰ ÁN
+  // 1. TẢI DANH SÁCH NHÂN SỰ
   async function loadSalesList() {
     const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
-    if (sData) {
-      globalSales = sData;
-      let options = '<option value="all">Tất cả Sales phụ trách</option>';
-      sData.forEach(sale => options += `<option value="${sale.id}">${sale.full_name}</option>`);
-      document.getElementById('filterSales').innerHTML = options;
-    }
-
-    const { data: pData } = await window.sbClient.from('projects').select('id, project_name').order('created_at', { ascending: false });
-    if (pData) {
-      globalProjectsForSelect = pData;
-      let pOptions = '<option value="">-- Không thuộc dự án nào --</option>';
-      let fOptions = '<option value="all">Tất cả Dự án</option><option value="none">-- Không thuộc dự án --</option>';
-      
-      pData.forEach(p => {
-        pOptions += `<option value="${p.id}">${p.project_name}</option>`;
-        fOptions += `<option value="${p.id}">${p.project_name}</option>`;
-      });
-      
-      document.getElementById('cusProject').innerHTML = pOptions;
-      document.getElementById('filterProject').innerHTML = fOptions;
-    }
+    if (sData) globalSales = sData;
   }
 
-  // 2. TẢI KHÁCH HÀNG
+  // 2. TẢI DATA KHÁCH HÀNG (BẢO MẬT CHẶT CHẼ)
   async function loadCustomers() {
-    document.getElementById('customerTableBody').innerHTML = '<tr><td colspan="9" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span> Đang tải dữ liệu...</td></tr>';
+    document.getElementById('customerTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span> Đang kết nối Database...</td></tr>';
     
     const role = window.currentUser.role;
     const myId = window.currentUser.id;
@@ -362,101 +307,76 @@
 
     let query = window.sbClient.from('customers').select('*', { count: 'exact' });
 
-    if (role === 'sales') {
+    // CHỐT CHẶN BẢO MẬT: CHỈ SYSTEM MỚI ĐƯỢC XEM TOÀN BỘ DATA
+    if (role !== 'system') {
       query = query.eq('assigned_to', myId);
-    } else if (role === 'manager') {
-      const adminIds = globalSales.filter(m => m.role === 'admin' || m.role === 'system').map(m => m.id);
-      if (adminIds.length > 0) query = query.not('assigned_to', 'in', `(${adminIds.join(',')})`);
     }
 
     const keyword = document.getElementById('filterSearch').value.trim().toLowerCase();
-    const group = document.getElementById('filterGroup').value;
-    const project = document.getElementById('filterProject').value;
     const status = document.getElementById('filterStatus').value;
-    const salesId = document.getElementById('filterSales').value;
+    const city = document.getElementById('filterCity').value.trim().toLowerCase();
+    const source = document.getElementById('filterSource').value;
 
-    if (keyword) query = query.or(`full_name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
-    if (group !== 'all') query = query.eq('customer_group', group);
-    if (project !== 'all') {
-      if (project === 'none') query = query.is('project_id', null);
-      else query = query.eq('project_id', project);
-    }
+    if (keyword) query = query.or(`full_name.ilike.%${keyword}%,phone.ilike.%${keyword}%,phone2.ilike.%${keyword}%`);
     if (status !== 'all') query = query.eq('lead_status', status);
-    if (salesId !== 'all') query = query.eq('assigned_to', salesId);
+    if (city) query = query.ilike('city', `%${city}%`);
+    if (source !== 'all') query = query.eq('source', source);
 
     const { data, error, count } = await query.order('updated_at', { ascending: false }).range(from, to);
-    if (error) { Swal.fire('Lỗi', error.message, 'error'); return; }
+    if (error) { Swal.fire('Lỗi Database', error.message, 'error'); return; }
 
     globalCustomers = data;
     totalItems = count || 0;
     
     renderCustomerTable(data);
     renderPagination();
-    if (currentCustomerView === 'kanban') renderKanbanBoard(globalCustomers);
+    if (currentCustomerView === 'kanban') renderKanbanBoard(data);
   }
 
-  // 3. RENDER BẢNG
+  // 3. VẼ BẢNG KÈM NÚT BẤM ĐẦY ĐỦ
   function renderCustomerTable(dataList) {
     const tbody = document.getElementById('customerTableBody');
     tbody.innerHTML = '';
     if(dataList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">Không tìm thấy khách hàng phù hợp.</td></tr>'; return;
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Chưa có dữ liệu khách hàng.</td></tr>'; return;
     }
+    
     dataList.forEach((cus, index) => {
       const sale = globalSales.find(s => s.id === cus.assigned_to);
       const saleName = sale ? sale.full_name : '<span class="text-danger">Chưa phân bổ</span>';
       
-      let statusHtml = '';
-      const st = cus.lead_status;
-      if (st === 'new') statusHtml = '<span class="badge bg-blue-lt">Mới tinh</span>';
-      else if (st === 'contacted') statusHtml = '<span class="badge bg-orange-lt">Đã liên hệ</span>';
-      else if (st === 'potential') statusHtml = '<span class="badge bg-green-lt fw-bold border border-success">Tiềm năng</span>';
-      else if (st === 'unqualified') statusHtml = '<span class="badge bg-secondary-lt">Không nhu cầu</span>';
-      else if (st === 'collecting') statusHtml = '<span class="badge bg-blue-lt">Đang thu thập TT</span>';
-      else if (st === 'listing') statusHtml = '<span class="badge bg-orange-lt">Đang rao thuê/bán</span>';
-      else if (st === 'closed') statusHtml = '<span class="badge bg-green-lt fw-bold border border-success">Đã chốt xong</span>';
-      else if (st === 'suspended') statusHtml = '<span class="badge bg-secondary-lt">Tạm ngưng</span>';
-      else if (st === 'searching') statusHtml = '<span class="badge bg-blue-lt">Đang tìm nhà</span>';
-      else if (st === 'viewing') statusHtml = '<span class="badge bg-orange-lt">Đang đi xem</span>';
-      else if (st === 'rented') statusHtml = '<span class="badge bg-green-lt fw-bold border border-success">Đã chốt thuê</span>';
-      else if (st === 'canceled') statusHtml = '<span class="badge bg-secondary-lt">Hủy bỏ</span>';
-      else statusHtml = `<span class="badge bg-light text-dark">${st || 'Trống'}</span>`;
+      const stHtml = cus.lead_status === 'potential' 
+        ? '<span class="badge bg-green-lt fw-bold border border-success px-2 py-1">Tiềm năng</span>' 
+        : '<span class="badge bg-secondary-lt fw-bold px-2 py-1">Hết nhu cầu</span>';
       
-      let groupHtml = '';
-      if (cus.customer_group === 'Buyer') groupHtml = '<span class="badge bg-indigo-lt">Khách dự án</span>';
-      else if (cus.customer_group === 'Owner') groupHtml = '<span class="badge bg-pink-lt">Chủ nhà</span>';
-      else if (cus.customer_group === 'Tenant') groupHtml = '<span class="badge bg-teal-lt">Khách thuê</span>';
-      else groupHtml = '<span class="badge bg-indigo-lt">Khách dự án</span>';
+      const sourceHtml = cus.data_source === 'Data Công ty' 
+        ? `<span class="text-indigo fw-bold"><i class="ti ti-database me-1"></i>Công ty</span>` 
+        : `<span class="text-orange fw-bold"><i class="ti ti-user-circle me-1"></i>Cá nhân</span>`;
 
       const dateObj = new Date(cus.updated_at);
-      const hh = dateObj.getHours().toString().padStart(2, '0');
-      const mm = dateObj.getMinutes().toString().padStart(2, '0');
-      const dd = dateObj.getDate().toString().padStart(2, '0');
-      const m0 = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-      const yyyy = dateObj.getFullYear();
-      const updateDate = `${hh}:${mm}, ${dd}/${m0}/${yyyy}`;
+      const updateDate = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}, ${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}`;
       const stt = (currentPage - 1) * itemsPerPage + index + 1;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="text-center text-muted">${stt}</td>
         <td>
-          <div class="fw-medium text-primary" style="font-size: 14px;">${cus.full_name}</div>
-          <div class="text-muted" style="font-size: 12px;"><i class="ti ti-phone me-1"></i>${cus.phone}</div>
+          <div class="fw-bold text-dark" style="font-size: 14px;">${cus.full_name}</div>
+          <div class="text-muted" style="font-size: 12px;"><i class="ti ti-phone me-1 text-success"></i>${cus.phone} ${cus.phone2 ? ` - ${cus.phone2}` : ''}</div>
         </td>
-        <td class="text-muted" style="font-size: 13px;">
-          ${cus.city ? `<i class="ti ti-map-pin me-1 text-muted"></i>${cus.city}` : '-'}
+        <td class="text-muted fw-medium">${cus.city || '-'}</td>
+        <td>
+          <div style="font-size: 12px;">${sourceHtml}</div>
+          <div class="text-muted" style="font-size: 11px;">${cus.source}</div>
         </td>
-        <td><div class="font-weight-medium text-primary" style="font-size: 13px;"><i class="ti ti-users-group me-1 text-blue"></i>${groupHtml}</div>
-          <div>${cus.demand ? `<i class="ti ti-target me-1 text-danger"></i><span class="font-weight-medium">${cus.demand}</span>` : '-'}</div>
-        </td>
-        <td>${statusHtml}</td>
-        <td class="text-muted"><i class="ti ti-user me-1"></i> ${saleName}</td>
-        <td class="text-muted" style="font-size: 13px;">${updateDate}</td>
+        <td>${stHtml}</td>
+        <td class="text-muted fw-medium"><i class="ti ti-user me-1"></i> ${saleName}</td>
+        <td class="text-muted" style="font-size: 12px;">${updateDate}</td>
         <td class="text-center">
-          <div class="d-flex justify-content-center align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-primary p-2 px-3 me-1" data-bs-toggle="modal" data-bs-target="#modal-customer" onclick="openCustomerModal('${cus.id}')"><i class="ti ti-pencil"></i> Sửa</button>
-            ${(window.currentUser.role === 'admin' || window.currentUser.role === 'system') ? `<button class="btn btn-sm btn-outline-danger p-2 px-3" onclick="deleteCustomer('${cus.id}')"><i class="ti ti-trash"></i></button>` : ''}
+          <div class="d-flex justify-content-center gap-1">
+            <button class="btn btn-sm btn-outline-primary px-2" title="Xem/Sửa" data-bs-toggle="modal" data-bs-target="#modal-customer" onclick="openCustomerModal('${cus.id}')"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-warning px-2" title="Chuyển Team Work" onclick="transferCustomer('${cus.id}')"><i class="ti ti-arrow-forward-up"></i></button>
+            <button class="btn btn-sm btn-outline-danger px-2" title="Xóa" onclick="deleteCustomer('${cus.id}')"><i class="ti ti-trash"></i></button>
           </div>
         </td>
       `;
@@ -468,14 +388,13 @@
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     const paginationEl = document.getElementById('paginationControls');
     if (totalItems === 0) { paginationEl.innerHTML = ''; return; }
-    const fromCount = (currentPage - 1) * itemsPerPage + 1;
-    const toCount = Math.min(currentPage * itemsPerPage, totalItems);
+    
     paginationEl.innerHTML = `
-      <span class="text-muted">Hiển thị <strong>${fromCount}</strong> - <strong>${toCount}</strong> / <strong>${totalItems}</strong> dòng</span>
+      <span class="text-muted fw-medium" style="font-size: 13px;">Đang hiện <strong>${(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>${Math.min(currentPage * itemsPerPage, totalItems)}</strong> / <strong>${totalItems}</strong></span>
       <div class="btn-group ms-auto">
-        <button class="btn btn-sm btn-outline-secondary" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}><i class="ti ti-chevron-left"></i> Trước</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}><i class="ti ti-chevron-left me-1"></i> Trước</button>
         <button class="btn btn-sm btn-outline-secondary" disabled style="color: var(--tblr-primary); font-weight: bold;">Trang ${currentPage} / ${totalPages}</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Sau <i class="ti ti-chevron-right"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Sau <i class="ti ti-chevron-right ms-1"></i></button>
       </div>
     `;
   }
@@ -484,89 +403,74 @@
   function applyFilter() { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentPage = 1; loadCustomers(); }, 500); }
   function resetFilter() { 
     document.getElementById('filterSearch').value = ''; 
-    document.getElementById('filterGroup').value = 'all'; 
-    document.getElementById('filterProject').value = 'all'; 
+    document.getElementById('filterCity').value = ''; 
+    document.getElementById('filterSource').value = 'all'; 
     document.getElementById('filterStatus').value = 'all'; 
-    document.getElementById('filterSales').value = 'all'; 
     currentPage = 1; 
     loadCustomers(); 
   }
 
-  // 4. MỞ MODAL & FIX LỖI KHÓA FORM
+  // 4. MỞ MODAL
   async function openCustomerModal(id = null) {
     document.getElementById('customerForm').reset();
     document.getElementById('customerId').value = '';
     
     const role = window.currentUser.role;
-    const phoneInput = document.getElementById('cusPhone');
-    const emailInput = document.getElementById('cusEmail');
-    const cityInput = document.getElementById('cusCity'); 
-    const demandInput = document.getElementById('cusDemand'); 
     const assignInput = document.getElementById('cusAssigned');
-    const groupInput = document.getElementById('cusGroup');
-    const projectInput = document.getElementById('cusProject');
-
-    let formOptions = '<option value="">-- Chưa phân bổ --</option>';
-    globalSales.forEach(sale => {
-      if (role === 'admin' || role === 'system') formOptions += `<option value="${sale.id}">${sale.full_name}</option>`;
-      else if (role === 'manager' && sale.role !== 'admin') formOptions += `<option value="${sale.id}">${sale.full_name}</option>`;
-      else if (role === 'sales' && sale.id === window.currentUser.id) formOptions += `<option value="${sale.id}">${sale.full_name}</option>`;
-    });
-    assignInput.innerHTML = formOptions;
     
-    // Mở khóa toàn bộ khi vừa bật form
-    phoneInput.disabled = false; emailInput.disabled = false; assignInput.disabled = false; 
-    groupInput.disabled = false; projectInput.disabled = false;
-    cityInput.disabled = false; demandInput.disabled = false; 
-
-    if (id) {
-      document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-edit me-2"></i> Chỉnh sửa Khách hàng';
-      const cus = globalCustomers.find(c => c.id === id);
-      
-      document.getElementById('customerId').value = cus.id;
-      document.getElementById('cusName').value = cus.full_name;
-      phoneInput.value = cus.phone;
-      emailInput.value = cus.email || '';
-      cityInput.value = cus.city || ''; 
-      demandInput.value = cus.demand || ''; 
-      document.getElementById('cusSource').value = cus.source || 'Other';
-      assignInput.value = cus.assigned_to || '';
-      document.getElementById('cusNotes').value = cus.notes || '';
-      projectInput.value = cus.project_id || '';
-      
-      groupInput.value = cus.customer_group || 'Buyer';
-      groupInput.dispatchEvent(new Event('change'));
-      document.getElementById('cusStatus').value = cus.lead_status;
-
-      // CHỐT CHẶN: Chỉ khóa những trường cốt lõi đối với Sales.
-      // Đã mở khóa Thành Phố (cityInput) và Nhu cầu (demandInput) để tiện cập nhật
-      if (role !== 'admin' && role !== 'system') { 
-        phoneInput.disabled = true; 
-        emailInput.disabled = true;
-        groupInput.disabled = true;
-        projectInput.disabled = true;
-      }
-
-      await loadCustomerLogs(id);
+    let formOptions = '';
+    if (role === 'system') {
+      formOptions = '<option value="">-- Chọn Sales --</option>';
+      globalSales.forEach(sale => formOptions += `<option value="${sale.id}">${sale.full_name}</option>`);
+      assignInput.innerHTML = formOptions;
+      assignInput.disabled = false;
     } else {
-      document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-user-plus me-2"></i> Thêm Khách Mới';
-      if(window.currentUser) assignInput.value = window.currentUser.id;
-      document.getElementById('customerTimeline').innerHTML = '<li><div class="text-muted text-center py-5">Khách hàng mới chưa có lịch sử.</div></li>';
-      
-      groupInput.value = 'Buyer';
-      groupInput.dispatchEvent(new Event('change'));
-      document.getElementById('cusStatus').value = 'new';
+      assignInput.innerHTML = `<option value="${window.currentUser.id}">${window.currentUser.full_name}</option>`;
+      assignInput.value = window.currentUser.id;
+      assignInput.disabled = true; 
     }
+    
+    setTimeout(async () => {
+      if (id) {
+        document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-edit me-2"></i> Chỉnh sửa Khách hàng';
+        const cus = globalCustomers.find(c => c.id === id);
+        
+        document.getElementById('customerId').value = cus.id;
+        document.getElementById('cusName').value = cus.full_name;
+        document.getElementById('cusPhone').value = cus.phone;
+        document.getElementById('cusPhone2').value = cus.phone2 || '';
+        document.getElementById('cusCity').value = cus.city || ''; 
+        
+        // Auto thêm Nguồn nếu chưa có
+        const sourceSelect = document.getElementById('cusSource');
+        if (!sourceSelect.querySelector(`option[value="${cus.source}"]`)) {
+          const opt = document.createElement('option'); opt.value = cus.source; opt.text = cus.source; sourceSelect.appendChild(opt);
+        }
+        sourceSelect.value = cus.source || 'Khác';
 
-    if (role === 'sales') { assignInput.disabled = true; assignInput.value = window.currentUser.id; }
+        document.getElementById('cusDataSource').value = cus.data_source || 'Data cá nhân';
+        document.getElementById('cusStatus').value = cus.lead_status || 'potential';
+        document.getElementById('cusNotes').value = cus.notes || '';
+        
+        if (role === 'system') assignInput.value = cus.assigned_to || '';
+        
+        await loadCustomerLogs(id);
+      } else {
+        document.getElementById('modalTitleCustomer').innerHTML = '<i class="ti ti-user-plus me-2"></i> Thêm Khách Mới';
+        document.getElementById('customerTimeline').innerHTML = '<li><div class="text-muted text-center py-5">Khách hàng mới chưa có lịch sử.</div></li>';
+      }
+    }, 100);
   }
 
+  // TẢI LỊCH SỬ CHĂM SÓC
   async function loadCustomerLogs(customerId) {
     const timelineEl = document.getElementById('customerTimeline');
     timelineEl.innerHTML = '<li><div class="text-muted text-center py-4"><span class="spinner-border spinner-border-sm text-success"></span> Đang tải...</div></li>';
+    
     const { data: logs, error } = await window.sbClient.from('care_logs').select('*').eq('customer_id', customerId).order('care_date', { ascending: false });
+    
     if (error) { timelineEl.innerHTML = '<li class="text-danger">Lỗi tải lịch sử</li>'; return; }
-    if (!logs || logs.length === 0) { timelineEl.innerHTML = '<li><div class="text-muted text-center py-5">Chưa có lịch sử tương tác.</div></li>'; return; }
+    if (!logs || logs.length === 0) { timelineEl.innerHTML = '<li><div class="text-muted text-center py-5">Chưa có lịch sử chăm sóc.</div></li>'; return; }
 
     timelineEl.innerHTML = '';
     logs.forEach(log => {
@@ -574,42 +478,25 @@
       const actorName = actor ? actor.full_name : 'Hệ thống';
       const dateObj = new Date(log.care_date);
       const timeStr = `${dateObj.getHours().toString().padStart(2,'0')}:${dateObj.getMinutes().toString().padStart(2,'0')}, ${dateObj.toLocaleDateString('vi-VN')}`;
-      const isCreate = log.interaction_type === 'Tạo mới';
       
-      let formattedContent = '';
-      if (log.content.startsWith('Thay đổi: ')) {
-        const separator = log.content.includes('[SEP]') ? '[SEP]' : ' | ';
-        const changes = log.content.replace('Thay đổi: ', '').split(separator);
-        changes.forEach(change => {
-          const firstColonIndex = change.indexOf(': ');
-          if (firstColonIndex !== -1) {
-            const key = change.substring(0, firstColonIndex);
-            const val = change.substring(firstColonIndex + 2);
-            formattedContent += `<div class="log-line" style="white-space: pre-wrap;"><strong>${key}:</strong> ${val}</div>`;
-          } else {
-            formattedContent += `<div class="log-line">${change}</div>`;
-          }
-        });
-      } else {
-        formattedContent = `<div class="log-line" style="white-space: pre-wrap;">${log.content}</div>`;
-      }
-
       const li = document.createElement('li');
       li.innerHTML = `
-        <div class="list-timeline-icon ${isCreate ? 'bg-success' : 'bg-warning'}"></div>
+        <div class="list-timeline-icon ${log.interaction_type === 'Tạo mới' ? 'bg-success' : 'bg-warning'}"></div>
         <div class="list-timeline-content" style="width: 100%;">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-success" style="font-weight: 700;">${actorName}</span>
+            <span class="text-success fw-bold">${actorName}</span>
             <span class="text-muted" style="font-size: 11px;">${timeStr}</span>
           </div>
-          <div class="log-item-content">${formattedContent}</div>
+          <div class="log-item-content">
+             <div style="white-space: pre-wrap;">${log.content.replace(/\[SEP\]/g, '<br>')}</div>
+          </div>
         </div>
       `;
       timelineEl.appendChild(li);
     });
   }
 
-  // 5. LƯU KHÁCH HÀNG
+  // 5. LƯU KHÁCH HÀNG (ĐÃ GỌT DŨA PAYLOAD CHUẨN DB)
   async function saveCustomer() {
     const btn = document.getElementById('btnSaveCustomer');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
@@ -618,96 +505,83 @@
     const vnTime = new Date().toISOString(); 
 
     let finalAssignedTo = window.currentUser.id;
-    if (window.currentUser.role === 'system' || window.currentUser.role === 'admin' || window.currentUser.role === 'manager') {
+    if (window.currentUser.role === 'system') {
         finalAssignedTo = document.getElementById('cusAssigned').value || null;
     }
 
-    let finalProjectId = document.getElementById('cusProject').value;
-    if (finalProjectId === "") finalProjectId = null;
-
+    // PAYLOAD ĐÃ ĐƯỢC CHUẨN HÓA KHỚP 100% VỚI BẢNG CUSTOMERS
     const payload = {
       full_name: document.getElementById('cusName').value, 
       phone: document.getElementById('cusPhone').value,
-      email: document.getElementById('cusEmail').value || null, 
+      phone2: document.getElementById('cusPhone2').value || null,
       city: document.getElementById('cusCity').value || null, 
-      demand: document.getElementById('cusDemand').value || null, 
       source: document.getElementById('cusSource').value,
+      data_source: document.getElementById('cusDataSource').value,
       lead_status: document.getElementById('cusStatus').value, 
       assigned_to: finalAssignedTo,
-      customer_group: document.getElementById('cusGroup').value,
-      project_id: finalProjectId,
       notes: document.getElementById('cusNotes').value || null, 
       updated_at: vnTime
     };
 
     const normalize = (val) => (val === "" || val === undefined) ? null : val;
-    const statusMap = { 
-      'new': 'Mới tinh', 'contacted': 'Đã liên hệ', 'potential': 'Tiềm năng', 'unqualified': 'Không nhu cầu',
-      'collecting': 'Đang thu thập TT', 'listing': 'Đang rao thuê/bán', 'closed': 'Đã chốt', 'suspended': 'Tạm ngưng',
-      'searching': 'Đang tìm nhà', 'viewing': 'Đang đi xem', 'rented': 'Đã chốt thuê', 'canceled': 'Hủy bỏ' 
-    };
-    const groupMap = { 'Buyer': 'Khách dự án', 'Owner': 'Chủ nhà', 'Tenant': 'Khách thuê' };
+    const statusMap = { 'potential': 'Tiềm năng', 'unqualified': 'Hết nhu cầu' };
 
     try {
       let targetCustomerId = id;
       if (id) {
         const oldData = globalCustomers.find(c => c.id === id);
         let changes = [];
+        
         if (normalize(oldData.full_name) !== normalize(payload.full_name)) changes.push(`Tên: ${oldData.full_name} ➔ ${payload.full_name}`);
         if (normalize(oldData.phone) !== normalize(payload.phone)) changes.push(`SĐT: ${oldData.phone} ➔ ${payload.phone}`);
-        if (normalize(oldData.email) !== normalize(payload.email)) changes.push(`Email: ${oldData.email || 'Trống'} ➔ ${payload.email || 'Trống'}`);
+        if (normalize(oldData.phone2) !== normalize(payload.phone2)) changes.push(`SĐT2: ${oldData.phone2 || 'Trống'} ➔ ${payload.phone2 || 'Trống'}`);
         if (normalize(oldData.city) !== normalize(payload.city)) changes.push(`Thành phố: ${oldData.city || 'Trống'} ➔ ${payload.city || 'Trống'}`);
-        if (normalize(oldData.demand) !== normalize(payload.demand)) changes.push(`Nhu cầu: ${oldData.demand || 'Trống'} ➔ ${payload.demand || 'Trống'}`);
         if (oldData.source !== payload.source) changes.push(`Nguồn: ${oldData.source} ➔ ${payload.source}`);
         if (oldData.lead_status !== payload.lead_status) changes.push(`Trạng thái: ${statusMap[oldData.lead_status]} ➔ ${statusMap[payload.lead_status]}`);
-        
-        if (oldData.customer_group !== payload.customer_group) changes.push(`Nhóm: ${groupMap[oldData.customer_group] || 'Khách dự án'} ➔ ${groupMap[payload.customer_group]}`);
-        if (normalize(oldData.project_id) !== normalize(payload.project_id)) {
-           const oldP = globalProjectsForSelect.find(p => p.id === oldData.project_id)?.project_name || 'Không có';
-           const newP = globalProjectsForSelect.find(p => p.id === payload.project_id)?.project_name || 'Không có';
-           changes.push(`Dự án: ${oldP} ➔ ${newP}`);
-        }
-        if (normalize(oldData.assigned_to) !== normalize(payload.assigned_to)) {
-           const oldS = globalSales.find(s => s.id === oldData.assigned_to)?.full_name || 'Chưa phân bổ';
-           const newS = globalSales.find(s => s.id === payload.assigned_to)?.full_name || 'Chưa phân bổ';
-           changes.push(`Sales: ${oldS} ➔ ${newS}`);
-        }
         if (normalize(oldData.notes) !== normalize(payload.notes)) changes.push(`Ghi chú: [${oldData.notes || 'Trống'}] ➔ [${payload.notes || 'Trống'}]`);
         
         if (changes.length > 0) {
           const { error: updErr } = await window.sbClient.from('customers').update(payload).eq('id', id);
           if (updErr) throw updErr;
           await window.sbClient.from('care_logs').insert([{
-            customer_id: id, member_id: window.currentUser.id, interaction_type: 'System Update',
-            content: "Thay đổi: " + changes.join("[SEP]"), care_date: vnTime
+            customer_id: id, member_id: window.currentUser.id, interaction_type: 'Cập nhật',
+            content: "Thay đổi thông tin:\n" + changes.join("[SEP]"), care_date: vnTime
           }]);
         }
       } else {
         const { data: newCus, error: insErr } = await window.sbClient.from('customers').insert([payload]).select().single();
         if (insErr) throw insErr;
         targetCustomerId = newCus.id;
+        
         await window.sbClient.from('care_logs').insert([{
           customer_id: targetCustomerId, member_id: window.currentUser.id, interaction_type: 'Tạo mới',
-          content: `Tạo mới khách hàng (${groupMap[payload.customer_group]}). Nguồn: ${payload.source}`, care_date: vnTime
+          content: `Khởi tạo khách hàng. Nguồn: ${payload.source}. Kho: ${payload.data_source}\n${payload.notes ? 'Ghi chú ban đầu: ' + payload.notes : ''}`, 
+          care_date: vnTime
         }]);
-      }
-
-      if (targetCustomerId) {
-        const { data: oldLogs } = await window.sbClient.from('care_logs').select('id').eq('customer_id', targetCustomerId).order('care_date', { ascending: false }).range(5, 999);
-        if (oldLogs && oldLogs.length > 0) {
-          await window.sbClient.from('care_logs').delete().in('id', oldLogs.map(log => log.id));
-        }
       }
       
       document.getElementById('btnCloseCustomerModal').click();
       Swal.fire({ icon: 'success', title: 'Thành công', timer: 1500, showConfirmButton: false });
       await loadCustomers();
-    } catch (err) { Swal.fire({ icon: 'error', title: 'Lỗi Database', text: err.message, confirmButtonColor: '#146654' }); } 
+
+    } catch (err) { Swal.fire({ icon: 'error', title: 'Lỗi', text: err.message, confirmButtonColor: '#146654' }); } 
     finally { btn.innerHTML = '<i class="ti ti-device-floppy fs-3 me-2"></i> Lưu thông tin'; btn.disabled = false; }
   }
 
+  // 6. CHUYỂN TEAM WORK
+  function transferCustomer(id) {
+    Swal.fire({
+      title: 'Chuyển sang Team Work',
+      text: "Chức năng copy khách hàng này sang không gian làm việc chung (Team Work) sẽ được mở trong bản cập nhật tới!",
+      icon: 'info',
+      confirmButtonColor: '#146654',
+      confirmButtonText: 'Đã hiểu'
+    });
+  }
+
+  // 7. XÓA KHÁCH HÀNG (MỌI TÀI KHOẢN ĐỀU XÓA ĐƯỢC VÌ ĐÃ LỌC DATA TỪNG NGƯỜI)
   function deleteCustomer(id) {
-    Swal.fire({ title: 'Xóa dữ liệu khách?', text: "Chỉ Admin/System mới có quyền này!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Xóa vĩnh viễn' })
+    Swal.fire({ title: 'Xóa dữ liệu khách?', text: "Hành động này sẽ xóa vĩnh viễn dữ liệu và lịch sử. Bạn có chắc chắn?", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Xóa vĩnh viễn' })
     .then(async (res) => {
       if (res.isConfirmed) {
         await window.sbClient.from('customers').delete().eq('id', id);
@@ -717,34 +591,9 @@
     });
   }
 
-  document.getElementById('cusGroup').addEventListener('change', function() {
-    const group = this.value;
-    const statusSelect = document.getElementById('cusStatus');
-    
-    if (group === 'Buyer') {
-      statusSelect.innerHTML = `
-        <option value="new">Mới nhập (Chưa LH)</option>
-        <option value="contacted">Đã liên hệ</option>
-        <option value="potential">Tiềm năng</option>
-        <option value="unqualified">Không nhu cầu</option>
-      `;
-    } else if (group === 'Owner') {
-      statusSelect.innerHTML = `
-        <option value="collecting">Đang thu thập TT</option>
-        <option value="listing">Đang rao thuê/bán</option>
-        <option value="closed">Đã chốt (Cho thuê/Bán xong)</option>
-        <option value="suspended">Tạm ngưng</option>
-      `;
-    } else if (group === 'Tenant') {
-      statusSelect.innerHTML = `
-        <option value="searching">Đang tìm nhà</option>
-        <option value="viewing">Đang đi xem</option>
-        <option value="rented">Đã chốt thuê</option>
-        <option value="canceled">Hủy bỏ</option>
-      `;
-    }
-  });
-
+  // ==========================================
+  // VIEW KANBAN BỔ SUNG (GỌN GÀNG THEO 2 TRẠNG THÁI)
+  // ==========================================
   function switchCustomerView(viewType) {
     currentCustomerView = viewType;
     const tableCard = document.getElementById('customerTableCard');
@@ -766,40 +615,17 @@
       btnTable.classList.remove('active');
     }
     
-    if(globalCustomers && globalCustomers.length > 0) {
-      renderKanbanBoard(globalCustomers);
-    }
+    if(globalCustomers && globalCustomers.length > 0) renderKanbanBoard(globalCustomers);
   }
 
   function renderKanbanBoard(dataList) {
     const wrapper = document.getElementById('kanbanWrapper');
     wrapper.innerHTML = '';
 
-    const groupFilter = document.getElementById('filterGroup').value;
-    let columns = [];
-
-    if (groupFilter === 'Owner') {
-      columns = [
-        { id: 'collecting', title: 'Đang thu thập TT', color: '#3b82f6' },
-        { id: 'listing', title: 'Đang rao thuê/bán', color: '#f59e0b' },
-        { id: 'closed', title: 'Đã chốt xong', color: '#10b981' },
-        { id: 'suspended', title: 'Tạm ngưng', color: '#64748b' }
-      ];
-    } else if (groupFilter === 'Tenant') {
-      columns = [
-        { id: 'searching', title: 'Đang tìm nhà', color: '#3b82f6' },
-        { id: 'viewing', title: 'Đang đi xem', color: '#f59e0b' },
-        { id: 'rented', title: 'Đã chốt thuê', color: '#10b981' },
-        { id: 'canceled', title: 'Hủy bỏ', color: '#64748b' }
-      ];
-    } else {
-      columns = [
-        { id: 'new', title: 'Mới tinh', color: '#3b82f6' },
-        { id: 'contacted', title: 'Đã liên hệ', color: '#f59e0b' },
-        { id: 'potential', title: 'Tiềm năng', color: '#10b981' },
-        { id: 'unqualified', title: 'Không nhu cầu', color: '#64748b' }
-      ];
-    }
+    const columns = [
+      { id: 'potential', title: 'Tiềm năng', color: '#10b981' },
+      { id: 'unqualified', title: 'Hết nhu cầu', color: '#64748b' }
+    ];
 
     columns.forEach(col => {
       const colData = dataList.filter(c => c.lead_status === col.id);
@@ -816,11 +642,10 @@
               <div style="width: 4px; height: 100%; background-color: ${col.color}; position: absolute; left: 0; top: 0;"></div>
               <div class="d-flex justify-content-between mb-2">
                 <span class="fw-bold" style="color: #1e293b; font-size: 14px;">${cus.full_name}</span>
-                <span class="badge bg-green-lt" style="font-size: 10px;">${cus.customer_group === 'Buyer' ? 'Khách dự án' : (cus.customer_group === 'Owner' ? 'Chủ nhà' : 'Khách thuê')}</span>
+                <span class="badge bg-secondary-lt" style="font-size: 10px;">${cus.source}</span>
               </div>
               <div class="text-muted mb-2" style="font-size: 12px;">
                 <i class="ti ti-phone me-1"></i> ${cus.phone}
-                ${cus.demand ? `<br><i class="ti ti-target me-1 mt-1 text-danger"></i>${cus.demand}` : ''}
               </div>
               <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
                 <div class="text-muted" style="font-size: 11px;">
@@ -837,52 +662,30 @@
       wrapper.appendChild(colDiv);
 
       new Sortable(document.getElementById(`kb-col-${col.id}`), {
-        group: 'shared', 
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        filter: '.no-drag', 
-        preventOnFilter: false,
+        group: 'shared', animation: 150, ghostClass: 'sortable-ghost', filter: '.no-drag', preventOnFilter: false,
         onEnd: async function (evt) {
-          const itemEl = evt.item;  
-          const toList = evt.to;    
-          const fromList = evt.from;
+          const itemEl = evt.item; const toList = evt.to; const fromList = evt.from;
           if (toList === fromList) return; 
 
           const customerId = itemEl.getAttribute('data-id');
           const newStatus = toList.getAttribute('data-status');
           const oldStatus = fromList.getAttribute('data-status');
-          
-          const statusMapStr = { 
-            'new': 'Mới tinh', 'contacted': 'Đã liên hệ', 'potential': 'Tiềm năng', 'unqualified': 'Không nhu cầu',
-            'collecting': 'Đang thu thập TT', 'listing': 'Đang rao thuê/bán', 'closed': 'Đã chốt', 'suspended': 'Tạm ngưng',
-            'searching': 'Đang tìm nhà', 'viewing': 'Đang đi xem', 'rented': 'Đã chốt thuê', 'canceled': 'Hủy bỏ' 
-          };
+          const statusMapStr = { 'potential': 'Tiềm năng', 'unqualified': 'Hết nhu cầu' };
 
           try {
             const vnTime = new Date().toISOString();
-            const { error: updErr } = await window.sbClient.from('customers').update({ 
-              lead_status: newStatus,
-              updated_at: vnTime
-            }).eq('id', customerId);
-            
+            const { error: updErr } = await window.sbClient.from('customers').update({ lead_status: newStatus, updated_at: vnTime }).eq('id', customerId);
             if (updErr) throw updErr;
 
             await window.sbClient.from('care_logs').insert([{
-              customer_id: customerId, 
-              member_id: window.currentUser.id, 
-              interaction_type: 'System Update',
-              content: `Kéo thả trạng thái: ${statusMapStr[oldStatus]} ➔ ${statusMapStr[newStatus]}`, 
-              care_date: vnTime
+              customer_id: customerId, member_id: window.currentUser.id, interaction_type: 'System Update',
+              content: `Kéo thả trạng thái: ${statusMapStr[oldStatus]} ➔ ${statusMapStr[newStatus]}`, care_date: vnTime
             }]);
 
             loadCustomers();
             const Toast = Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000 });
             Toast.fire({ icon: 'success', title: `Đã chuyển sang: ${statusMapStr[newStatus]}` });
-
-          } catch (error) {
-            Swal.fire('Lỗi', 'Không thể cập nhật trạng thái: ' + error.message, 'error');
-            fromList.appendChild(itemEl);
-          }
+          } catch (error) { Swal.fire('Lỗi', error.message, 'error'); fromList.appendChild(itemEl); }
         }
       });
     });
