@@ -59,18 +59,8 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-duan" onclick="switchPage('duan')" style="cursor: pointer;">
-                <i class="ti ti-building-skyscraper me-2 fs-2 nav-link-icon"></i> Dự án
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-rohang" onclick="switchPage('rohang')" style="cursor: pointer;">
-                <i class="ti ti-home-check me-2 fs-2 nav-link-icon"></i> Rổ hàng thuê
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-hopdong" onclick="switchPage('hopdong')" style="cursor: pointer;">
-                <i class="ti ti-file-certificate me-2 fs-2 nav-link-icon"></i> Hợp đồng
+              <a class="nav-link nav-menu" id="nav-teamwork" onclick="switchPage('teamwork')" style="cursor: pointer;">
+                <i class="ti ti-users-group me-2 fs-2 nav-link-icon"></i> Team Work
               </a>
             </li>
           </ul>
@@ -87,9 +77,7 @@
       <div id="module-member" class="app-module" style="display: none;"></div>
       <div id="module-marketing" class="app-module" style="display: none;"></div>
       <div id="module-khachhang" class="app-module" style="display: none;"></div>
-      <div id="module-duan" class="app-module" style="display: none;"></div>
-      <div id="module-rohang" class="app-module" style="display: none;"></div>
-      <div id="module-hopdong" class="app-module" style="display: none;"></div>
+      <div id="module-teamwork" class="app-module" style="display: none;"></div>
     </div>
   </div>
 
@@ -238,9 +226,7 @@
       if (pageId === 'member' && typeof loadMembers === 'function') loadMembers();
       if (pageId === 'marketing' && typeof loadMarketingModule === 'function') loadMarketingModule();
       if (pageId === 'khachhang' && typeof loadCustomers === 'function') loadSalesList().then(() => loadCustomers());
-      if (pageId === 'duan' && typeof loadProjects === 'function') loadProjects();
-      if (pageId === 'rohang' && typeof loadProperties === 'function') loadProperties();
-      if (pageId === 'hopdong' && typeof loadContracts === 'function') loadContracts();
+      if (pageId === 'teamwork' && typeof loadTeamWorkModule === 'function') loadTeamWorkModule();
     }
 
     // 6. KHỞI CHẠY HỆ THỐNG
