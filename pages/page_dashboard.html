@@ -1,0 +1,78 @@
+<style>
+  .metric-card { border: none; border-radius: 12px; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+  .metric-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+  .metric-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .todo-box { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; height: 100%; }
+</style>
+
+<div class="page-header d-print-none mt-4">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
+          <i class="ti ti-layout-dashboard me-2"></i> Bảng Điều Khiển
+        </h2>
+        <div class="text-muted mt-1" style="font-size: 13px;">Tóm tắt hiệu suất cá nhân và công việc cần làm</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <h4 class="mb-3 text-uppercase text-muted fw-bold" style="font-size: 11px; letter-spacing: 1px;">HIỆU SUẤT CÁ NHÂN</h4>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="card metric-card border-start border-3 border-cyan">
+              <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="metric-icon bg-cyan-lt text-cyan"><i class="ti ti-headset"></i></div>
+                <div>
+                  <div class="text-muted fw-medium" style="font-size: 12px;">Data MKT chưa xử lý</div>
+                  <div class="fs-1 fw-bold text-dark" id="myPendingLeads"><span class="spinner-border spinner-border-sm text-muted"></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="card metric-card border-start border-3 border-orange">
+              <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="metric-icon bg-orange-lt text-orange"><i class="ti ti-star"></i></div>
+                <div>
+                  <div class="text-muted fw-medium" style="font-size: 12px;">Khách Tiềm Năng</div>
+                  <div class="fs-1 fw-bold text-dark" id="myPotentialCus">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-lg-4">
+        <div class="todo-box d-flex flex-column text-center p-5">
+           <i class="ti ti-checklist text-muted mb-3" style="font-size: 40px; opacity: 0.5;"></i>
+           <h4 class="fw-bold" style="color: #146654;">Hệ thống CRM Sẵn Sàng</h4>
+           <p class="text-muted small">Hãy chuyển sang tab Kho Marketing để lấy Data</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadDashboardStats() {
+    try {
+      if (!window.currentUser) return;
+      const myId = window.currentUser.id;
+      // Đếm số lượng data đang nợ (đã đổi sales_id thành assigned_to cho đồng bộ)
+      const { count, error } = await window.sbClient.from('marketing_leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_to', myId)
+        .eq('status', 'Đã phát')
+        .is('quick_report', null);
+        
+      if (!error) document.getElementById('myPendingLeads').innerText = new Intl.NumberFormat().format(count || 0);
+    } catch (error) { console.error("Lỗi Dashboard:", error); }
+  }
+</script>
