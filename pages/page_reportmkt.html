@@ -180,7 +180,7 @@
     } catch (e) { console.error(e); }
   }
 
-  // 3. Tải Data Bảng
+  // 3. Tải Data Bảng (Tích hợp logic attempt_count > 0)
   async function fetchRepMktData() {
     const tbody = document.getElementById('repTableBody');
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
@@ -188,7 +188,9 @@
     const from = (repCurrentPage - 1) * repItemsPerPage;
     const to = from + repItemsPerPage - 1;
 
-    let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' }).neq('status', 'Chưa phát');
+    // LỌC KÉP: Đảm bảo quét sạch data đã từng tương tác (attempt_count > 0) HOẶC trạng thái khác 'Chưa phát'
+    let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' })
+      .or('attempt_count.gt.0,status.neq.Chưa phát');
 
     const keyword = document.getElementById('repSearchInput').value.trim().replace(/\s+/g, '');
     if (keyword) {
@@ -224,7 +226,6 @@
 
     tbody.innerHTML = '';
     data.forEach((lead, index) => {
-      // --- XỬ LÝ KHỐI HÀNH TRÌNH CHUỖI ---
       let journeyHtml = '';
       
       if (lead.rejected_by && lead.rejected_by.length > 0) {
@@ -249,9 +250,7 @@
          journeyHtml += `<div class="journey-badge border-primary bg-blue-lt"><span class="text-primary fw-bold">TRẢ VỀ KHO (CHỜ PHÁT)</span></div>`;
       }
 
-      // --- BỔ SUNG CHI TIẾT NỘI DUNG PHẢN HỒI ---
       let attemptsCount = lead.attempt_count || 1;
-      // Khối hiển thị chi tiết số lần lặp và báo cáo cuối cùng
       let reportDetailsHtml = `
         <div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed #cbd5e1; font-size: 12px;">
           <div class="d-flex align-items-center mb-1">
@@ -268,7 +267,6 @@
         </div>
       `;
 
-      // --- XỬ LÝ KHỐI DATA KHÁCH HÀNG (Hiển thị thêm Ghi chú) ---
       const notesHtml = lead.notes 
         ? `<div class="mt-1 text-muted" style="font-size: 11px;"><i class="ti ti-notes text-warning me-1"></i><span class="fst-italic text-dark">${lead.notes}</span></div>` 
         : '';
