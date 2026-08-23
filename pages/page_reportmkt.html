@@ -94,8 +94,8 @@
         </div>
       </div>
       <div class="col-md-2">
-        <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" onclick="resetReportFilter()">
-          <i class="ti ti-refresh me-2"></i> Tải lại
+        <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center btn-brand text-white" onclick="resetReportFilter()">
+          <i class="ti ti-refresh me-2"></i> Làm mới
         </button>
       </div>
     </div>
@@ -180,7 +180,7 @@
     } catch (e) { console.error(e); }
   }
 
-  // 3. Tải Data Bảng (Tích hợp logic attempt_count > 0)
+  // 3. Tải Data Bảng
   async function fetchRepMktData() {
     const tbody = document.getElementById('repTableBody');
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
@@ -188,7 +188,6 @@
     const from = (repCurrentPage - 1) * repItemsPerPage;
     const to = from + repItemsPerPage - 1;
 
-    // LỌC KÉP: Đảm bảo quét sạch data đã từng tương tác (attempt_count > 0) HOẶC trạng thái khác 'Chưa phát'
     let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' })
       .or('attempt_count.gt.0,status.neq.Chưa phát');
 
@@ -209,9 +208,10 @@
       query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
     }
 
+    // UPDATE QUAN TRỌNG: Sắp xếp theo updated_at để đưa các tương tác mới nhất (báo cáo, bỏ qua, tiềm năng) lên đầu
     const { data, error, count } = await query
-      .order('assigned_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('assigned_at', { ascending: false })
       .range(from, to);
 
     if (error) { tbody.innerHTML = `<tr><td colspan="6" class="text-danger text-center">Lỗi: ${error.message}</td></tr>`; return; }
@@ -272,13 +272,14 @@
         : '';
 
       let finalStatus = '';
-      if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold">WIN (Tiềm năng)</span>';
-      else if (lead.status === 'Rác') finalStatus = '<span class="badge bg-danger text-white fw-bold">LOSE (Rác)</span>';
-      else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold">PENDING (Đang nợ)</span>';
-      else finalStatus = `<span class="badge bg-secondary text-white fw-bold">${lead.status || 'Chưa rõ'}</span>`;
+      if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold px-2 py-1">WIN (Tiềm năng)</span>';
+      else if (lead.status === 'Rác') finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Rác)</span>';
+      else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold px-2 py-1">PENDING (Đang nợ)</span>';
+      else finalStatus = `<span class="badge bg-secondary text-white fw-bold px-2 py-1">${lead.status || 'Chưa rõ'}</span>`;
 
-      const dateObj = new Date(lead.assigned_at || lead.created_at);
-      const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} - ${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+      // UPDATE QUAN TRỌNG: Ưu tiên lấy updated_at làm giờ báo cáo mới nhất
+      const dateObj = new Date(lead.updated_at || lead.assigned_at || lead.created_at);
+      const timeStr = `<span class="fw-bold" style="color: #146654;">${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}</span><br><span class="text-muted" style="font-size: 11px;">${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}</span>`;
 
       const stt = (repCurrentPage - 1) * repItemsPerPage + index + 1;
 
@@ -299,7 +300,7 @@
             ${reportDetailsHtml}
           </td>
           <td class="text-center">${finalStatus}</td>
-          <td class="text-muted" style="font-size: 12px;">${timeStr}</td>
+          <td class="text-center" style="font-size: 13px;">${timeStr}</td>
         </tr>
       `;
     });
