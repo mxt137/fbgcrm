@@ -218,9 +218,9 @@
             didOpen: () => { Swal.showLoading(); }
           });
     
-          // Gọi API cập nhật thẳng vào Database qua Supabase SDK
+          // FIX: Cập nhật thẳng vào bảng gốc 'members' thay vì view 'safe_members'
           const { error } = await window.sbClient
-            .from('safe_members')
+            .from('members')
             .update({ password_text: newPassword.trim() })
             .eq('id', window.currentUser.id);
     
