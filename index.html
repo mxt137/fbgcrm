@@ -218,18 +218,23 @@
             didOpen: () => { Swal.showLoading(); }
           });
     
-          // FIX: Cập nhật thẳng vào bảng gốc 'members' thay vì view 'safe_members'
-          const { error } = await window.sbClient
-            .from('members')
-            .update({ password_text: newPassword.trim() })
-            .eq('id', window.currentUser.id);
+          // GỌI RPC ĐỂ VƯỢT QUA RLS VÀ CẬP NHẬT AN TOÀN TRÊN SERVER
+          const { data: newVersion, error } = await window.sbClient.rpc('change_my_password', {
+            p_user_id: window.currentUser.id,
+            p_new_password: newPassword.trim()
+          });
     
           if (error) throw error;
+    
+          // ĐỒNG BỘ SESSION: Cập nhật password_version mới vào LocalStorage 
+          // để tài khoản hiện tại không bị hệ thống tự động đăng xuất
+          window.currentUser.password_version = newVersion;
+          localStorage.setItem('crm_session', JSON.stringify(window.currentUser));
     
           Swal.fire({
             icon: 'success',
             title: 'Thành công',
-            text: 'Mật khẩu của bạn đã được thay đổi an toàn.',
+            text: 'Mật khẩu của bạn đã được thay đổi. Các thiết bị khác sẽ bị đăng xuất.',
             confirmButtonColor: '#146654'
           });
     
