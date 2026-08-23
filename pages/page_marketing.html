@@ -3,7 +3,7 @@
   .lead-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
   .stat-card { border: none; border-radius: 12px; color: white; overflow: hidden; position: relative; }
   .stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 100px; opacity: 0.15; transform: rotate(-15deg); }
-  .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .search-result-row:hover { background-color: rgba(20, 102, 84, 0.04); }
 </style>
 
@@ -23,7 +23,6 @@
 <div class="page-body">
   <div class="container-xl">
     
-    <!-- ADMIN PANEL -->
     <div id="adminMarketingPanel" style="display: none; margin-bottom: 30px;">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="m-0" style="font-weight: 700; color: #146654;">Tổng Quan Kho Dữ Liệu</h3>
@@ -71,7 +70,7 @@
         </div>
       </div>
 
-      <div id="quickSearchPanel" class="card shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0;">
+      <div class="card shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0;">
         <div class="card-body">
           <h4 class="mb-3" style="color: #146654; font-weight: 700;"><i class="ti ti-search me-2"></i>Tra Cứu Dữ Liệu Nhanh</h4>
           <div class="d-flex gap-3">
@@ -87,31 +86,25 @@
         </div>
       </div>
 
-      <div id="importDataPanel" class="card shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-3">
-            <i class="ti ti-brand-google-drive fs-1 text-success"></i>
-            <div class="flex-grow-1">
-              <input type="text" id="inputSheetUrl" class="form-control" placeholder="Dán link Google Sheet chứa Data Marketing vào đây...">
-            </div>
-            <button class="btn btn-brand px-4" id="btnImportData" onclick="handleImportData()">
-              <i class="ti ti-cloud-upload me-2"></i> Import 30k Data
-            </button>
+      <div class="card shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
+        <div class="card-body d-flex align-items-center gap-3">
+          <i class="ti ti-brand-google-drive fs-1 text-success"></i>
+          <div class="flex-grow-1">
+            <input type="text" id="inputSheetUrl" class="form-control" placeholder="Dán link Google Sheet chứa Data Marketing vào đây...">
           </div>
-          <div class="mt-3 text-muted" style="font-size: 13px; font-style: italic; background: rgba(20, 102, 84, 0.05); padding: 12px; border-radius: 8px;">
-            <i class="ti ti-info-circle me-1 text-info fw-bold"></i> <strong class="text-dark">HƯỚNG DẪN IMPORT:</strong> Mở Google Sheet chứa Data ➔ Chọn <b>Tệp (File)</b> ➔ <b>Chia sẻ (Share)</b> ➔ <b>Xuất bản lên web (Publish to web)</b> ➔ Chọn định dạng <b>Dấu phẩy phân tách (.csv)</b> ➔ Sao chép link và dán vào ô bên trên.
-          </div>
+          <button class="btn btn-brand px-4" id="btnImportData" onclick="handleImportData()">
+            <i class="ti ti-cloud-upload me-2"></i> Import 30k Data
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- KHU VỰC BỐC SỐ CỦA SALES -->
     <div class="d-flex align-items-center justify-content-between mb-4 mt-4 bg-white p-3 border" style="border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
       <h3 class="m-0" style="font-weight: 700; color: #1e293b;"><i class="ti ti-list-check me-2 text-primary"></i> Xử lý Data</h3>
       
       <div class="d-flex gap-2 align-items-center">
         <select id="selectLeadProject" class="form-select" style="width: 250px; font-weight: 500;">
-          <option value="all">-- Đang tải dự án... --</option>
+          <option value="all">-- Bốc ngẫu nhiên (Tất cả) --</option>
         </select>
         <button class="btn btn-primary shadow-sm" id="btnGetLeads" onclick="drawNewLeads()" style="border-radius: 8px; font-weight: 600;">
           <i class="ti ti-download me-2"></i> Nhận 10 Data
@@ -136,7 +129,7 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
       <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-        <h5 class="modal-title" style="font-weight: 700; color: #1e293b;"><i class="ti ti-chart-bar me-2 text-primary"></i> Báo cáo Hiệu suất khai thác Data</h5>
+        <h5 class="modal-title" style="font-weight: 700; color: #1e293b;"><i class="ti ti-chart-bar me-2 text-primary"></i> Hiệu suất khai thác Data</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
@@ -145,10 +138,10 @@
             <thead style="background: #f1f5f9;">
               <tr>
                 <th class="ps-4">TÊN NHÂN VIÊN (SALES)</th>
-                <th class="text-center" title="Tổng số data đã rút khỏi kho">TỔNG ĐÃ NHẬN</th>
-                <th class="text-center text-success" title="Số lượng được đánh giá là Tiềm năng">SỐ TIỀM NĂNG</th>
-                <th class="text-center text-danger" title="Số lượng đã bấm Bỏ qua">ĐÃ BỎ QUA</th>
-                <th class="text-center text-warning" title="Số lượng đang giữ chưa báo cáo">ĐANG NỢ (CHƯA XỬ LÝ)</th>
+                <th class="text-center">TỔNG ĐÃ NHẬN</th>
+                <th class="text-center text-success">ĐÃ XỬ LÝ XONG</th>
+                <th class="text-center text-warning">ĐANG NỢ (CHƯA XỬ LÝ)</th>
+                <th class="text-center text-primary">SỐ TIỀM NĂNG</th>
               </tr>
             </thead>
             <tbody id="adminSalesStatsBody">
@@ -175,7 +168,7 @@
     const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
     if(sData) globalSalesForMarketing = sData;
 
-    if (role === 'system' || role === 'admin' || role === 'manager') {
+    if (role === 'admin' || role === 'manager' || role === 'system') {
       document.getElementById('adminMarketingPanel').style.display = 'block';
       await loadAdminDashboard();
     }
@@ -219,6 +212,7 @@
       if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
 
     } catch (err) {
+      console.error("Lỗi tải kho data Marketing:", err);
       selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
     } finally {
       selectEl.disabled = false;
@@ -247,7 +241,7 @@
     const tbody = document.getElementById('adminSalesStatsBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>';
     
-    // Đã thay thế sales_id bằng assigned_to để khớp DB
+    // Đã thay thế sales_id bằng assigned_to để khớp chuẩn Database
     const { data, error } = await window.sbClient.from('marketing_leads').select('assigned_to, status, quick_report, rejected_by').or('assigned_to.not.is.null,rejected_by.neq.{}');
     if (error) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>'; return; }
 
@@ -258,13 +252,14 @@
     let statsMap = {};
     globalSalesForMarketing.forEach(sale => {
       if (sale.role !== 'system') {
-        statsMap[sale.id] = { name: sale.full_name, role: sale.role, total: 0, pending: 0, potential: 0, rejected: 0 };
+        statsMap[sale.id] = { name: sale.full_name, role: sale.role, total: 0, processed: 0, pending: 0, potential: 0, rejected: 0 };
       }
     });
 
     data.forEach(lead => {
       if(lead.assigned_to && statsMap[lead.assigned_to]) {
         statsMap[lead.assigned_to].total++;
+        if (lead.status === 'Đã xử lý') statsMap[lead.assigned_to].processed++;
         if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.assigned_to].pending++;
         if (lead.quick_report === 'Tiềm năng') statsMap[lead.assigned_to].potential++;
       }
@@ -287,20 +282,19 @@
       tr.innerHTML = `
         <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
         <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-        <td class="text-center text-success fw-bold">${st.potential > 0 ? `<span class="badge bg-green-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
-        <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
+        <td class="text-center text-success fw-bold">${st.processed > 0 ? `<span class="badge bg-green-lt px-2 py-1">${st.processed}</span>` : '0'}</td>
         <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
+        <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
       `;
       tbody.appendChild(tr);
     }
   }
 
-  // 4. DANH SÁCH SỐ ĐANG NỢ CỦA SALES (THAY THẾ ORDER BY CREATED_AT ĐỂ TRÁNH LỖI)
+  // 4. DANH SÁCH SỐ ĐANG NỢ CỦA SALES
   async function loadMyAssignedLeads() {
     const container = document.getElementById('myLeadsContainer');
     const myId = window.currentUser.id;
 
-    // Sửa lỗi: Lấy đúng cột assigned_to và bỏ order by assigned_at
     const { data, error } = await window.sbClient
       .from('marketing_leads')
       .select('*')
@@ -336,6 +330,7 @@
     }
 
     myPendingLeads.forEach((lead, index) => {
+      const assignedTime = lead.assigned_at ? new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Gần đây';
       const col = document.createElement('div');
       col.className = 'col-md-6'; 
       
@@ -347,8 +342,8 @@
       col.innerHTML = `
         <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp thứ ${(lead.attempt_count || 0) + 1}</span>
-            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-bell-ringing me-1"></i> Data vừa nhận</span>
+            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1}</span>
+            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
           </div>
           
           <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name}</h4>
@@ -399,11 +394,31 @@
         return;
       }
 
-      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th></tr></thead><tbody>`;
+      let html = `
+        <div class="table-responsive border rounded-3 mt-2">
+          <table class="table table-vcenter table-hover card-table m-0">
+            <thead style="background: #f8fafc;">
+              <tr>
+                <th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th>
+                <th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại Gốc</th>
+                <th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án (Source)</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
       data.forEach(item => {
-        html += `<tr class="search-result-row"><td class="ps-3 fw-bold text-dark">${item.customer_name || '<span class="text-muted fst-italic">Chưa có tên</span>'}</td><td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td><td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td></tr>`;
+        html += `
+          <tr class="search-result-row">
+            <td class="ps-3 fw-bold text-dark">${item.customer_name || '<span class="text-muted fst-italic">Chưa có tên</span>'}</td>
+            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
+            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
+          </tr>
+        `;
       });
-      resContainer.innerHTML = html + '</tbody></table></div>';
+      
+      html += '</tbody></table></div>';
+      resContainer.innerHTML = html;
 
     } catch (err) {
       resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi truy vấn: ${err.message}</div>`;
@@ -440,11 +455,11 @@
       }
 
       const leadIds = readyLeads.map(l => l.id);
+      const vnTime = new Date().toISOString();
 
-      // KHÔNG DÙNG assigned_at ĐỂ TRÁNH LỖI, CHỈ SỬ DỤNG assigned_to NHƯ CỘT CHUẨN
       const { error: errUpdate } = await window.sbClient
         .from('marketing_leads')
-        .update({ status: 'Đã phát', assigned_to: myId, quick_report: null })
+        .update({ status: 'Đã phát', assigned_to: myId, assigned_at: vnTime, quick_report: null })
         .in('id', leadIds);
 
       if (errUpdate) throw errUpdate;
@@ -462,30 +477,31 @@
     }
   }
 
-  // 7. XỬ LÝ BÁO CÁO (QOA RPC)
+  // 7. XỬ LÝ BÁO CÁO (KHÔI PHỤC LOGIC .UPDATE CŨ)
   async function submitQuickReport(leadId, reportType) {
     const card = document.getElementById(`lead-card-${leadId}`);
     card.style.opacity = '0.5'; 
 
     try {
-      const myId = window.currentUser.id;
-
-      const { error } = await window.sbClient.rpc('report_marketing_lead', {
-        p_lead_id: leadId,
-        p_sales_id: myId,
-        p_report: reportType
-      });
+      // SỬ DỤNG LẠI CHỨC NĂNG REPORT CŨ (Update trực tiếp từ JS)
+      const { error } = await window.sbClient
+        .from('marketing_leads')
+        .update({ quick_report: reportType, status: 'Đã xử lý' })
+        .eq('id', leadId);
 
       if (error) throw error;
 
+      // NẾU TIỀM NĂNG -> BAY SANG TAB KHÁCH HÀNG & MỞ POPUP AUTO-FILL
       if (reportType === 'Tiềm năng') {
         const leadData = myPendingLeads.find(l => l.id === leadId);
+        const myId = window.currentUser.id; 
         const myName = window.currentUser.full_name; 
         
         switchPage('khachhang');
         
         if (typeof openCustomerModal === 'function') {
           await openCustomerModal(); 
+          
           let fakeBtn = document.createElement('button');
           fakeBtn.setAttribute('data-bs-toggle', 'modal');
           fakeBtn.setAttribute('data-bs-target', '#modal-customer');
@@ -531,7 +547,7 @@
     }
   }
 
-  // 8. ADMIN IMPORT DATA PAPAPARSE
+  // 8. ADMIN IMPORT DATA
   function handleImportData() {
     const url = document.getElementById('inputSheetUrl').value.trim();
     if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link Google Sheet!', 'warning'); return; }
