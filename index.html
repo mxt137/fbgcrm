@@ -160,7 +160,7 @@
         const m0 = (dateObj.getMonth() + 1).toString().padStart(2, '0');
         loginTimeStr = `${hh}:${mm} ngày ${dd}/${m0}/${dateObj.getFullYear()}`;
       }
-
+    
       const topbarEl = document.getElementById('global-topbar'); 
       if (topbarEl) {
         topbarEl.className = "navbar navbar-expand-md d-none d-lg-flex d-print-none";
@@ -181,13 +181,69 @@
                   <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 0.8px;">${user.role} ${user.department ? '- ' + user.department : ''}</div>
                 </div>
               </div>
-              <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 shadow-sm fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i> Đăng xuất</button>
+              <div class="d-flex align-items-center gap-2">
+                <button onclick="changeMyPassword()" class="btn btn-outline-primary btn-sm rounded-3 shadow-sm fw-bold px-3 py-1.5"><i class="ti ti-key me-2"></i> Đổi mật khẩu</button>
+                <button onclick="forceLogout()" class="btn btn-outline-danger btn-sm rounded-3 shadow-sm fw-bold px-3 py-1.5"><i class="ti ti-logout me-2"></i> Đăng xuất</button>
+              </div>
             </div>
           </div>
         `;
       }
     }
 
+    // TÍNH NĂNG ĐỔI MẬT KHẨU NHANH CÁ NHÂN
+    async function changeMyPassword() {
+      const { value: newPassword } = await Swal.fire({
+        title: 'Đổi mật khẩu bảo mật',
+        input: 'password',
+        inputLabel: 'Thiết lập mật khẩu truy cập mới:',
+        inputPlaceholder: 'Nhập mật khẩu mới...',
+        showCancelButton: true,
+        confirmButtonText: '<i class="ti ti-device-floppy me-1"></i> Lưu thay đổi',
+        cancelButtonText: 'Hủy bỏ',
+        confirmButtonColor: '#146654',
+        inputValidator: (value) => {
+          if (!value || value.trim().length < 6) {
+            return 'Mật khẩu phải có ít nhất 6 ký tự để đảm bảo an toàn!';
+          }
+        }
+      });
+    
+      if (newPassword) {
+        try {
+          // Bật trạng thái chờ
+          Swal.fire({
+            title: 'Đang cập nhật dữ liệu...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+    
+          // Gọi API cập nhật thẳng vào Database qua Supabase SDK
+          const { error } = await window.sbClient
+            .from('safe_members')
+            .update({ password_text: newPassword.trim() })
+            .eq('id', window.currentUser.id);
+    
+          if (error) throw error;
+    
+          Swal.fire({
+            icon: 'success',
+            title: 'Thành công',
+            text: 'Mật khẩu của bạn đã được thay đổi an toàn.',
+            confirmButtonColor: '#146654'
+          });
+    
+        } catch (error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Lỗi cập nhật',
+            text: 'Hệ thống bị gián đoạn: ' + error.message,
+            confirmButtonColor: '#146654'
+          });
+        }
+      }
+    }
+    
     // 5. BỘ ĐỊNH TUYẾN CHUYỂN MODULE (SPA ROUTER)
     async function switchPage(pageId) {
       const isValid = await verifySystemAccess();
