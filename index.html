@@ -63,6 +63,11 @@
                 <i class="ti ti-users-group me-2 fs-2 nav-link-icon"></i> Team Work
               </a>
             </li>
+            <li class="nav-item" id="menu-reportmkt" style="display: none;">
+              <a class="nav-link nav-menu" id="nav-reportmkt" onclick="switchPage('reportmkt')" style="cursor: pointer;">
+                <i class="ti ti-radar me-2 fs-2 nav-link-icon text-danger"></i> Chi tiết Kho MKT
+              </a>
+            </li>
           </ul>
         </div>
       </div>
@@ -78,6 +83,7 @@
       <div id="module-marketing" class="app-module" style="display: none;"></div>
       <div id="module-khachhang" class="app-module" style="display: none;"></div>
       <div id="module-teamwork" class="app-module" style="display: none;"></div>
+      <div id="module-reportmkt" class="app-module" style="display: none;"></div>
     </div>
   </div>
 
@@ -126,6 +132,11 @@
 
         // Cập nhật ngầm giờ truy cập
         window.sbClient.rpc('record_login_time', { p_id: session.id }).then(() => {});
+        // Bật quyền user system
+        if (data.role === 'system') {
+          const mnu = document.getElementById('menu-reportmkt');
+          if (mnu) mnu.style.display = 'block';
+        }
         return true;
       } catch (e) {
         forceLogout();
@@ -227,6 +238,7 @@
       if (pageId === 'marketing' && typeof loadMarketingModule === 'function') loadMarketingModule();
       if (pageId === 'khachhang' && typeof loadCustomers === 'function') loadSalesList().then(() => loadCustomers());
       if (pageId === 'teamwork' && typeof loadTeamWorkModule === 'function') loadTeamWorkModule();
+      if (pageId === 'reportmkt' && typeof loadReportMktModule === 'function') loadReportMktModule();
     }
 
     // 6. KHỞI CHẠY HỆ THỐNG
