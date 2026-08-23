@@ -13,7 +13,7 @@
         <h2 class="page-title text-danger" style="font-weight: 700;">
           <i class="ti ti-radar me-2"></i> Giám Sát Chi Tiết Kho Marketing
         </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Đặc quyền System: Theo dõi hành trình xử lý Data và phát hiện "nhả số"</div>
+        <div class="text-muted mt-1" style="font-size: 13px;">Đặc quyền System: Theo dõi hành trình xử lý Data, phản hồi và phát hiện "nhả số"</div>
       </div>
     </div>
   </div>
@@ -108,8 +108,8 @@
             <tr>
               <th class="w-1 text-center">STT</th>
               <th>DATA KHÁCH HÀNG</th>
-              <th>THÔNG TIN GỐC (DỰ ÁN)</th>
-              <th>HÀNH TRÌNH SALES XỬ LÝ (Lịch sử)</th>
+              <th>THÔNG TIN NGUỒN</th>
+              <th style="min-width: 300px;">HÀNH TRÌNH & NỘI DUNG PHẢN HỒI</th>
               <th class="text-center">TRẠNG THÁI CUỐI</th>
               <th>CẬP NHẬT LÚC</th>
             </tr>
@@ -180,7 +180,7 @@
     } catch (e) { console.error(e); }
   }
 
-  // 3. Tải Data Bảng (ĐÃ SỬA LỖI ORDER BY)
+  // 3. Tải Data Bảng
   async function fetchRepMktData() {
     const tbody = document.getElementById('repTableBody');
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
@@ -207,7 +207,6 @@
       query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
     }
 
-    // FIX LỖI: Chỉ sử dụng assigned_at và created_at để sắp xếp (do marketing_leads không có updated_at)
     const { data, error, count } = await query
       .order('assigned_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
@@ -225,6 +224,7 @@
 
     tbody.innerHTML = '';
     data.forEach((lead, index) => {
+      // --- XỬ LÝ KHỐI HÀNH TRÌNH CHUỖI ---
       let journeyHtml = '';
       
       if (lead.rejected_by && lead.rejected_by.length > 0) {
@@ -249,13 +249,36 @@
          journeyHtml += `<div class="journey-badge border-primary bg-blue-lt"><span class="text-primary fw-bold">TRẢ VỀ KHO (CHỜ PHÁT)</span></div>`;
       }
 
+      // --- BỔ SUNG CHI TIẾT NỘI DUNG PHẢN HỒI ---
+      let attemptsCount = lead.attempt_count || 1;
+      // Khối hiển thị chi tiết số lần lặp và báo cáo cuối cùng
+      let reportDetailsHtml = `
+        <div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed #cbd5e1; font-size: 12px;">
+          <div class="d-flex align-items-center mb-1">
+            <i class="ti ti-repeat text-muted me-2"></i> 
+            <span class="text-muted me-1">Lượt bốc số:</span> <strong class="text-primary">${attemptsCount} lần</strong>
+          </div>
+          <div class="d-flex align-items-start">
+            <i class="ti ti-message-report text-primary me-2 mt-1"></i> 
+            <div>
+              <span class="text-muted me-1">Phản hồi cuối:</span> 
+              <strong class="text-danger">${lead.quick_report || 'Đang xử lý / Chưa có báo cáo'}</strong>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // --- XỬ LÝ KHỐI DATA KHÁCH HÀNG (Hiển thị thêm Ghi chú) ---
+      const notesHtml = lead.notes 
+        ? `<div class="mt-1 text-muted" style="font-size: 11px;"><i class="ti ti-notes text-warning me-1"></i><span class="fst-italic text-dark">${lead.notes}</span></div>` 
+        : '';
+
       let finalStatus = '';
       if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold">WIN (Tiềm năng)</span>';
       else if (lead.status === 'Rác') finalStatus = '<span class="badge bg-danger text-white fw-bold">LOSE (Rác)</span>';
       else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold">PENDING (Đang nợ)</span>';
       else finalStatus = `<span class="badge bg-secondary text-white fw-bold">${lead.status || 'Chưa rõ'}</span>`;
 
-      // FIX LỖI: Loại bỏ check biến updated_at, chỉ sử dụng các cột thời gian có thực trên DB
       const dateObj = new Date(lead.assigned_at || lead.created_at);
       const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} - ${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
 
@@ -266,14 +289,16 @@
           <td class="text-center text-muted fw-bold">${stt}</td>
           <td>
             <div class="fw-bold text-dark" style="font-size: 14px;">${lead.customer_name || 'Chưa cập nhật'}</div>
-            <div class="text-primary fw-bold" style="font-size: 14px;"><i class="ti ti-phone me-1"></i>${lead.phone}</div>
+            <div class="text-primary fw-bold mb-1" style="font-size: 14px;"><i class="ti ti-phone me-1"></i>${lead.phone}</div>
+            ${notesHtml}
           </td>
           <td>
             <div class="fw-medium text-dark" style="font-size: 12px;"><i class="ti ti-building-skyscraper me-1 text-muted"></i>${lead.project_name || 'Không rõ'}</div>
             <div class="text-muted" style="font-size: 11px;"><i class="ti ti-world me-1"></i>${lead.source || 'Import'}</div>
           </td>
-          <td style="white-space: normal; min-width: 250px;">
-            ${journeyHtml}
+          <td style="white-space: normal;">
+            <div class="mb-1">${journeyHtml}</div>
+            ${reportDetailsHtml}
           </td>
           <td class="text-center">${finalStatus}</td>
           <td class="text-muted" style="font-size: 12px;">${timeStr}</td>
