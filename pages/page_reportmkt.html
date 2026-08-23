@@ -126,14 +126,13 @@
 </div>
 
 <script>
-  let repSalesMap = {}; // Lưu danh sách tên Sales để map ID -> Tên
+  let repSalesMap = {}; 
   let repCurrentPage = 1;
-  const repItemsPerPage = 100; // Hiển thị 100 kết quả mỗi trang
+  const repItemsPerPage = 100; 
   let repTotalItems = 0;
   let repSearchTimeout = null;
 
   async function loadReportMktModule() {
-    // Chốt chặn bảo mật tuyệt đối
     if (!window.currentUser || window.currentUser.role !== 'system') {
       document.querySelector('.page-body').innerHTML = '<div class="container-xl"><div class="alert alert-danger">Bạn không có quyền truy cập trang này!</div></div>';
       return;
@@ -144,7 +143,7 @@
     await fetchRepMktData();
   }
 
-  // 1. Tải danh sách Sales để Filter & Map Tên
+  // 1. Tải danh sách Sales
   async function fetchRepSalesList() {
     const { data } = await window.sbClient.from('safe_members').select('id, full_name').neq('role', 'system');
     if (data) {
@@ -181,7 +180,7 @@
     } catch (e) { console.error(e); }
   }
 
-  // 3. Tải Data Bảng (Pagination & Filters)
+  // 3. Tải Data Bảng (ĐÃ SỬA LỖI ORDER BY)
   async function fetchRepMktData() {
     const tbody = document.getElementById('repTableBody');
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
@@ -191,30 +190,28 @@
 
     let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' }).neq('status', 'Chưa phát');
 
-    // Filter by Keyword
     const keyword = document.getElementById('repSearchInput').value.trim().replace(/\s+/g, '');
     if (keyword) {
       query = query.or(`phone.ilike.%${keyword}%,customer_name.ilike.%${keyword}%`);
     }
 
-    // Filter by Status
     const statusFilter = document.getElementById('repStatusFilter').value;
     if (statusFilter === 'Tiềm năng') query = query.eq('quick_report', 'Tiềm năng');
     else if (statusFilter === 'Đang nợ') query = query.eq('status', 'Đã phát').is('quick_report', null);
     else if (statusFilter === 'Bỏ qua') {
-      // Tìm các lead bị đánh rác hoặc bị ít nhất 1 người reject
       query = query.or('status.eq.Rác,quick_report.in.(Không nghe máy,Không nhu cầu,Rác/Spam)');
     }
 
-    // Filter by Sales ID (Tìm cả trong người đang giữ VÀ những người đã từng reject)
     const salesId = document.getElementById('repSalesFilter').value;
     if (salesId !== 'all') {
-      // Dùng PostgREST syntax để OR giữa cột UUID và mảng UUID[]
       query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
     }
 
-    // Lấy 100 dòng mới nhất
-    const { data, error, count } = await query.order('updated_at', { ascending: false }).order('assigned_at', { ascending: false }).range(from, to);
+    // FIX LỖI: Chỉ sử dụng assigned_at và created_at để sắp xếp (do marketing_leads không có updated_at)
+    const { data, error, count } = await query
+      .order('assigned_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (error) { tbody.innerHTML = `<tr><td colspan="6" class="text-danger text-center">Lỗi: ${error.message}</td></tr>`; return; }
     
@@ -228,10 +225,8 @@
 
     tbody.innerHTML = '';
     data.forEach((lead, index) => {
-      // 1. Dựng Hành Trình Sales (Sales Journey)
       let journeyHtml = '';
       
-      // Nhóm đã bỏ qua
       if (lead.rejected_by && lead.rejected_by.length > 0) {
         lead.rejected_by.forEach(rId => {
           const sName = repSalesMap[rId] || 'Nhân sự cũ';
@@ -239,7 +234,6 @@
         });
       }
       
-      // Người đang giữ hiện tại
       if (lead.assigned_to) {
         const sName = repSalesMap[lead.assigned_to] || 'Nhân sự cũ';
         if (lead.quick_report === 'Tiềm năng') {
@@ -247,7 +241,6 @@
         } else if (lead.status === 'Đã phát' && !lead.quick_report) {
           journeyHtml += `<div class="journey-badge border-warning bg-orange-lt"><span class="text-warning fw-bold">${sName}</span> <i class="ti ti-clock-hour-4 ms-1 text-warning" title="Đang giữ"></i></div>`;
         } else {
-          // Bị gán trạng thái rác ở lượt cuối
           journeyHtml += `<div class="journey-badge border-danger bg-red-lt"><span class="text-danger fw-bold">${sName}</span> <i class="ti ti-ban ms-1 text-danger"></i></div>`;
         }
       } else if (lead.status === 'Rác') {
@@ -256,15 +249,14 @@
          journeyHtml += `<div class="journey-badge border-primary bg-blue-lt"><span class="text-primary fw-bold">TRẢ VỀ KHO (CHỜ PHÁT)</span></div>`;
       }
 
-      // 2. Dựng Trạng thái cuối
       let finalStatus = '';
       if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold">WIN (Tiềm năng)</span>';
       else if (lead.status === 'Rác') finalStatus = '<span class="badge bg-danger text-white fw-bold">LOSE (Rác)</span>';
       else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold">PENDING (Đang nợ)</span>';
       else finalStatus = `<span class="badge bg-secondary text-white fw-bold">${lead.status || 'Chưa rõ'}</span>`;
 
-      // 3. Thời gian
-      const dateObj = new Date(lead.updated_at || lead.assigned_at || lead.created_at);
+      // FIX LỖI: Loại bỏ check biến updated_at, chỉ sử dụng các cột thời gian có thực trên DB
+      const dateObj = new Date(lead.assigned_at || lead.created_at);
       const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} - ${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
 
       const stt = (repCurrentPage - 1) * repItemsPerPage + index + 1;
