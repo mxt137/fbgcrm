@@ -28,7 +28,7 @@
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="m-0" style="font-weight: 700; color: #146654;">Tổng Quan Kho Dữ Liệu</h3>
         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-sales-report" onclick="loadAdminSalesStats()">
-          <i class="ti ti-chart-bar me-2"></i> Báo Cáo Hiệu Suất Sales
+          <i class="ti ti-chart-bar me-2"></i> Báo Cáo Tình Trạng Sales
         </button>
       </div>
 
@@ -71,7 +71,6 @@
         </div>
       </div>
 
-      <!-- TRA CỨU NHANH (CHỈ SYSTEM ĐƯỢC THẤY) -->
       <div id="quickSearchPanel" class="card shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0;">
         <div class="card-body">
           <h4 class="mb-3" style="color: #146654; font-weight: 700;"><i class="ti ti-search me-2"></i>Tra Cứu Dữ Liệu Nhanh</h4>
@@ -88,7 +87,6 @@
         </div>
       </div>
 
-      <!-- IMPORT DATA (CHỈ SYSTEM ĐƯỢC THẤY) -->
       <div id="importDataPanel" class="card shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
         <div class="card-body">
           <div class="d-flex align-items-center gap-3">
@@ -97,7 +95,7 @@
               <input type="text" id="inputSheetUrl" class="form-control" placeholder="Dán link Google Sheet chứa Data Marketing vào đây...">
             </div>
             <button class="btn btn-brand px-4" id="btnImportData" onclick="handleImportData()">
-              <i class="ti ti-cloud-upload me-2"></i> Import Data
+              <i class="ti ti-cloud-upload me-2"></i> Import 30k Data
             </button>
           </div>
           <div class="mt-3 text-muted" style="font-size: 13px; font-style: italic; background: rgba(20, 102, 84, 0.05); padding: 12px; border-radius: 8px;">
@@ -113,9 +111,8 @@
       
       <div class="d-flex gap-2 align-items-center">
         <select id="selectLeadProject" class="form-select" style="width: 250px; font-weight: 500;">
-          <option value="all">-- Bốc ngẫu nhiên (Tất cả) --</option>
-          </select>
-
+          <option value="all">-- Đang tải dự án... --</option>
+        </select>
         <button class="btn btn-primary shadow-sm" id="btnGetLeads" onclick="drawNewLeads()" style="border-radius: 8px; font-weight: 600;">
           <i class="ti ti-download me-2"></i> Nhận 10 Data
         </button>
@@ -123,7 +120,7 @@
     </div>
 
     <div id="pendingWarning" class="alert alert-warning mb-4 shadow-sm" style="display: none; border-radius: 8px;">
-      <i class="ti ti-alert-triangle me-2"></i> <strong>Chú ý:</strong> Bạn phải "Báo cáo" dứt điểm các số đang nợ ở bên dưới trước khi được bốc số mới!
+      <i class="ti ti-alert-triangle me-2"></i> <strong>Chú ý:</strong> Bạn phải "Thanh toán" hết số lượng Data đang nợ ở bên dưới trước khi được bốc số mới!
     </div>
 
     <div class="row g-3" id="myLeadsContainer">
@@ -136,23 +133,20 @@
 </div>
 
 <div class="modal modal-blur fade" id="modal-sales-report" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
       <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
         <h5 class="modal-title" style="font-weight: 700; color: #1e293b;"><i class="ti ti-chart-bar me-2 text-primary"></i> Báo cáo Hiệu suất khai thác Data</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
-        <div class="p-3 bg-white border-bottom" id="adminActiveSalesCount">
-          <span class="spinner-border spinner-border-sm text-primary"></span> Đang tính toán...
-        </div>
         <div class="table-responsive">
           <table class="table table-vcenter card-table table-hover text-nowrap m-0">
             <thead style="background: #f1f5f9;">
               <tr>
                 <th class="ps-4">TÊN NHÂN VIÊN (SALES)</th>
                 <th class="text-center" title="Tổng số data đã rút khỏi kho">TỔNG ĐÃ NHẬN</th>
-                <th class="text-center text-primary" title="Số lượng được đánh giá là Tiềm năng">SỐ TIỀM NĂNG</th>
+                <th class="text-center text-success" title="Số lượng được đánh giá là Tiềm năng">SỐ TIỀM NĂNG</th>
                 <th class="text-center text-danger" title="Số lượng đã bấm Bỏ qua">ĐÃ BỎ QUA</th>
                 <th class="text-center text-warning" title="Số lượng đang giữ chưa báo cáo">ĐANG NỢ (CHƯA XỬ LÝ)</th>
               </tr>
@@ -197,11 +191,12 @@
     await loadMyAssignedLeads();
   }
 
-  // 2. LOAD DROPDOWN DỰ ÁN TỪ NHỮNG SỐ "CHƯA PHÁT"
+  // 2. TẢI DỰ ÁN TỪ KHO
   async function loadAvailableProjects() {
     const selectEl = document.getElementById('selectLeadProject'); 
-    
+    const btnGetLeads = document.getElementById('btnGetLeads');
     if (!selectEl) return;
+    
     selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
     selectEl.disabled = true;
 
@@ -211,6 +206,7 @@
 
       if (!data || data.length === 0) {
         selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
+        btnGetLeads.disabled = true;
         return;
       }
 
@@ -220,6 +216,7 @@
       });
       
       selectEl.innerHTML = options;
+      if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
 
     } catch (err) {
       selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
@@ -245,12 +242,13 @@
     } catch (err) { console.error('Lỗi tải Dashboard Marketing:', err); }
   }
 
-  // 3.5 POPUP ADMIN BÁO CÁO SALES CHI TIẾT
+  // 3.5 BÁO CÁO SALES CHI TIẾT
   async function loadAdminSalesStats() {
     const tbody = document.getElementById('adminSalesStatsBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>';
     
-    const { data, error } = await window.sbClient.from('marketing_leads').select('sales_id, status, quick_report, rejected_by').or('sales_id.not.is.null,rejected_by.neq.{}');
+    // Đã thay thế sales_id bằng assigned_to để khớp DB
+    const { data, error } = await window.sbClient.from('marketing_leads').select('assigned_to, status, quick_report, rejected_by').or('assigned_to.not.is.null,rejected_by.neq.{}');
     if (error) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>'; return; }
 
     if(!data || data.length === 0) {
@@ -258,7 +256,6 @@
     }
 
     let statsMap = {};
-    let activeSalesCount = 0;
     globalSalesForMarketing.forEach(sale => {
       if (sale.role !== 'system') {
         statsMap[sale.id] = { name: sale.full_name, role: sale.role, total: 0, pending: 0, potential: 0, rejected: 0 };
@@ -266,10 +263,10 @@
     });
 
     data.forEach(lead => {
-      if(lead.sales_id && statsMap[lead.sales_id]) {
-        statsMap[lead.sales_id].total++;
-        if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.sales_id].pending++;
-        if (lead.quick_report === 'Tiềm năng') statsMap[lead.sales_id].potential++;
+      if(lead.assigned_to && statsMap[lead.assigned_to]) {
+        statsMap[lead.assigned_to].total++;
+        if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.assigned_to].pending++;
+        if (lead.quick_report === 'Tiềm năng') statsMap[lead.assigned_to].potential++;
       }
       
       if(lead.rejected_by && lead.rejected_by.length > 0) {
@@ -285,35 +282,32 @@
     tbody.innerHTML = '';
     for (const [saleId, st] of Object.entries(statsMap)) {
       if (st.total === 0 && st.role === 'admin') continue; 
-      if (st.total > 0) activeSalesCount++;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
         <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-        <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
+        <td class="text-center text-success fw-bold">${st.potential > 0 ? `<span class="badge bg-green-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
         <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
         <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
       `;
       tbody.appendChild(tr);
     }
-
-    document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>${activeSalesCount} nhân sự</strong> tham gia khai thác data.`;
   }
 
-  // 4. TẢI DANH SÁCH SỐ SALES ĐANG NỢ (BỔ SUNG LOGS & HISTORY)
+  // 4. DANH SÁCH SỐ ĐANG NỢ CỦA SALES (THAY THẾ ORDER BY CREATED_AT ĐỂ TRÁNH LỖI)
   async function loadMyAssignedLeads() {
     const container = document.getElementById('myLeadsContainer');
     const myId = window.currentUser.id;
 
-    // Load số đang phát và có báo cáo rỗng
+    // Sửa lỗi: Lấy đúng cột assigned_to và bỏ order by assigned_at
     const { data, error } = await window.sbClient
       .from('marketing_leads')
       .select('*')
-      .eq('sales_id', myId)
+      .eq('assigned_to', myId)
       .eq('status', 'Đã phát')
       .is('quick_report', null)
-      .order('assigned_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) { container.innerHTML = '<div class="col-12 text-danger">Lỗi tải dữ liệu.</div>'; return; }
 
@@ -342,11 +336,9 @@
     }
 
     myPendingLeads.forEach((lead, index) => {
-      const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
       const col = document.createElement('div');
       col.className = 'col-md-6'; 
       
-      // XỬ LÝ LỊCH SỬ BÁO CÁO CỦA CÁC SALES TRƯỚC (NẾU CÓ)
       let historyHtml = '';
       if (lead.report_history && lead.report_history.length > 0) {
           historyHtml = `<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử gọi: <span class="fst-italic text-dark">${lead.report_history.join(' ➔ ')}</span></div>`;
@@ -356,7 +348,7 @@
         <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
           <div class="d-flex justify-content-between align-items-start mb-2">
             <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp thứ ${(lead.attempt_count || 0) + 1}</span>
-            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
+            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-bell-ringing me-1"></i> Data vừa nhận</span>
           </div>
           
           <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name}</h4>
@@ -384,9 +376,7 @@
     });
   }
 
-  // ==========================================
-  // TÌM KIẾM NHANH BẰNG RPC
-  // ==========================================
+  // 5. TÌM KIẾM NHANH BẰNG RPC
   async function triggerQuickSearch() {
     const rawInput = document.getElementById('searchPhoneInput').value;
     const cleanInput = rawInput.replace(/\s+/g, ''); 
@@ -409,38 +399,18 @@
         return;
       }
 
-      let html = `
-        <div class="table-responsive border rounded-3 mt-2">
-          <table class="table table-vcenter table-hover card-table m-0">
-            <thead style="background: #f8fafc;">
-              <tr>
-                <th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th>
-                <th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại Gốc</th>
-                <th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án (Source)</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
-      
+      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th></tr></thead><tbody>`;
       data.forEach(item => {
-        html += `
-          <tr class="search-result-row">
-            <td class="ps-3 fw-bold text-dark">${item.customer_name || '<span class="text-muted fst-italic">Chưa có tên</span>'}</td>
-            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
-            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
-          </tr>
-        `;
+        html += `<tr class="search-result-row"><td class="ps-3 fw-bold text-dark">${item.customer_name || '<span class="text-muted fst-italic">Chưa có tên</span>'}</td><td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td><td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td></tr>`;
       });
-      
-      html += '</tbody></table></div>';
-      resContainer.innerHTML = html;
+      resContainer.innerHTML = html + '</tbody></table></div>';
 
     } catch (err) {
       resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi truy vấn: ${err.message}</div>`;
     }
   }
 
-  // 5. LOGIC SALES BỐC SỐ (ÁP DỤNG CHỐNG TRÙNG VÀ CLEAR REPORT)
+  // 6. BỐC SỐ TỰ ĐỘNG
   async function drawNewLeads() {
     const btn = document.getElementById('btnGetLeads');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...';
@@ -450,7 +420,6 @@
       const selectedProject = document.getElementById('selectLeadProject').value;
       const myId = window.currentUser.id;
 
-      // Xây dựng câu lệnh lấy số: CHẶN TUYỆT ĐỐI NHỮNG SỐ MÌNH ĐÃ TỪNG NHẢ RA (rejected_by)
       let query = window.sbClient.from('marketing_leads')
         .select('id')
         .eq('status', 'Chưa phát')
@@ -471,12 +440,11 @@
       }
 
       const leadIds = readyLeads.map(l => l.id);
-      const vnTime = new Date().toISOString();
 
-      // CẬP NHẬT QUICK_REPORT = NULL ĐỂ SALES MỚI NHẬN NHƯ 1 DATA MỚI TINH
+      // KHÔNG DÙNG assigned_at ĐỂ TRÁNH LỖI, CHỈ SỬ DỤNG assigned_to NHƯ CỘT CHUẨN
       const { error: errUpdate } = await window.sbClient
         .from('marketing_leads')
-        .update({ status: 'Đã phát', sales_id: myId, assigned_at: vnTime, quick_report: null })
+        .update({ status: 'Đã phát', assigned_to: myId, quick_report: null })
         .in('id', leadIds);
 
       if (errUpdate) throw errUpdate;
@@ -485,7 +453,7 @@
       
       await loadMyAssignedLeads();
       await loadAvailableProjects();
-      if (window.currentUser.role === 'admin' || window.currentUser.role === 'manager' || window.currentUser.role === 'system') loadAdminDashboard();
+      if (window.currentUser.role !== 'sales') loadAdminDashboard();
 
     } catch (error) {
       Swal.fire('Lỗi', error.message, 'error');
@@ -494,7 +462,7 @@
     }
   }
 
-  // 6. XỬ LÝ BÁO CÁO QUA HỆ THỐNG RPC MỚI
+  // 7. XỬ LÝ BÁO CÁO (QOA RPC)
   async function submitQuickReport(leadId, reportType) {
     const card = document.getElementById(`lead-card-${leadId}`);
     card.style.opacity = '0.5'; 
@@ -502,7 +470,6 @@
     try {
       const myId = window.currentUser.id;
 
-      // CHẠY QUA RPC ĐỂ KÍCH HOẠT VÒNG LẶP TRẢ KHO HOẶC ĐÓNG SỔ
       const { error } = await window.sbClient.rpc('report_marketing_lead', {
         p_lead_id: leadId,
         p_sales_id: myId,
@@ -511,7 +478,6 @@
 
       if (error) throw error;
 
-      // NẾU TIỀM NĂNG -> BAY SANG TAB KHÁCH HÀNG & MỞ POPUP AUTO-FILL
       if (reportType === 'Tiềm năng') {
         const leadData = myPendingLeads.find(l => l.id === leadId);
         const myName = window.currentUser.full_name; 
@@ -520,7 +486,6 @@
         
         if (typeof openCustomerModal === 'function') {
           await openCustomerModal(); 
-          
           let fakeBtn = document.createElement('button');
           fakeBtn.setAttribute('data-bs-toggle', 'modal');
           fakeBtn.setAttribute('data-bs-target', '#modal-customer');
@@ -555,7 +520,7 @@
       myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
       await loadMyAssignedLeads();
       
-      if (window.currentUser.role === 'admin' || window.currentUser.role === 'manager' || window.currentUser.role === 'system') {
+      if (window.currentUser.role !== 'sales') {
         loadAdminDashboard();
         loadAdminSalesStats(); 
       }
@@ -566,7 +531,7 @@
     }
   }
 
-  // 7. ADMIN IMPORT DATA (BẰNG PAPAPARSE)
+  // 8. ADMIN IMPORT DATA PAPAPARSE
   function handleImportData() {
     const url = document.getElementById('inputSheetUrl').value.trim();
     if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link Google Sheet!', 'warning'); return; }
@@ -600,7 +565,6 @@
 
         if(payload.length > 0) {
           btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
-          
           const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone', ignoreDuplicates: true });
           
           if(error) {
@@ -616,7 +580,7 @@
         loadAvailableProjects();
       },
       error: function(err) { 
-        Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link trên.', 'error'); 
+        Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); 
         resetImportBtn(); 
       }
     });
@@ -624,7 +588,7 @@
 
   function resetImportBtn() { 
     const btn = document.getElementById('btnImportData'); 
-    btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; 
+    btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import 30k Data'; 
     btn.disabled = false; 
   }
 </script>
