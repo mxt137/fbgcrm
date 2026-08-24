@@ -175,7 +175,8 @@
   async function loadMarketingModule() {
     const role = window.currentUser.role;
     
-    const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
+    // UPDATE: Select thêm department để phục vụ báo cáo Sales nhóm theo phòng ban
+    const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role, department').eq('is_active', true);
     if(sData) globalSalesForMarketing = sData;
 
     // HIỂN THỊ PANEL ADMIN (Admin & Manager & System)
@@ -265,7 +266,7 @@
     } catch (err) { console.error('Lỗi tải Dashboard:', err); }
   }
 
-  // 3.5 BÁO CÁO SALES CHI TIẾT
+  // 3.5 BÁO CÁO SALES CHI TIẾT (UPDATE: Sắp xếp phòng ban & chỉ hiện người bốc số)
   async function loadAdminSalesStats() {
     const tbody = document.getElementById('adminSalesStatsBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>';
@@ -276,10 +277,16 @@
     if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nào được phát.</td></tr>'; return; }
 
     let statsMap = {};
-    let activeSalesCount = 0;
+    
+    // Nạp sẵn danh sách Sales với thông tin phòng ban
     globalSalesForMarketing.forEach(sale => {
       if (sale.role !== 'system') {
-        statsMap[sale.id] = { name: sale.full_name, role: sale.role, total: 0, pending: 0, potential: 0, rejected: 0 };
+        statsMap[sale.id] = { 
+          name: sale.full_name, 
+          role: sale.role, 
+          department: sale.department || 'Chưa phân phòng',
+          total: 0, pending: 0, potential: 0, rejected: 0 
+        };
       }
     });
 
@@ -302,25 +309,52 @@
 
     tbody.innerHTML = '';
     
-    for (const [saleId, st] of Object.entries(statsMap)) {
-      if (st.total === 0 && st.role === 'admin') continue; 
-      if (st.total > 0) activeSalesCount++;
+    // UPDATE: Chỉ lấy nhân sự CÓ bốc số (total > 0)
+    let activeSalesList = Object.values(statsMap).filter(st => st.total > 0);
+    
+    // UPDATE: Sắp xếp nhân sự theo Phòng Ban (A-Z)
+    activeSalesList.sort((a, b) => {
+      if (a.department === 'Chưa phân phòng') return 1; 
+      if (b.department === 'Chưa phân phòng') return -1;
+      return a.department.localeCompare(b.department);
+    });
 
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
-        <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-        <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
-        <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
-        <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
-      `;
-      tbody.appendChild(tr);
+    let activeSalesCount = activeSalesList.length;
+
+    if (activeSalesCount === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có nhân sự nào tham gia bốc số.</td></tr>';
+    } else {
+      let currentDept = null;
+
+      activeSalesList.forEach(st => {
+        // Tạo dòng tách biệt cho từng phòng ban
+        if (currentDept !== st.department) {
+          currentDept = st.department;
+          tbody.innerHTML += `
+            <tr>
+              <td colspan="5" class="bg-light text-muted fw-bold text-uppercase" style="font-size: 11px; padding: 8px 16px; border-top: 2px solid #e2e8f0;">
+                <i class="ti ti-building-skyscraper me-1"></i> ${currentDept}
+              </td>
+            </tr>
+          `;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
+          <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
+          <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
+          <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
+          <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
     document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>${activeSalesCount} nhân sự</strong> tham gia khai thác data.`;
   }
 
-  // 4. DANH SÁCH ĐANG NỢ CỦA SALES (2 NÚT)
+  // 4. DANH SÁCH ĐANG NỢ CỦA SALES
   async function loadMyAssignedLeads() {
     const container = document.getElementById('myLeadsContainer');
     const myId = window.currentUser.id;
@@ -367,8 +401,8 @@
           
           <div class="d-flex align-items-center gap-2 mb-2">
             <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>${lead.phone}</div>
-            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success px-2 py-1"><i class="ti ti-phone"></i> Gọi</a>
-            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary px-2 py-1"><i class="ti ti-brand-hipchat"></i> Zalo</a>
+            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
+            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
           </div>
 
           <div class="text-muted mb-4" style="font-size: 13px;">
@@ -423,7 +457,7 @@
     } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
   }
 
-  // 6. BỐC SỐ TỰ ĐỘNG (CHỐNG TRÙNG LẶP SỐ ĐÃ BỎ QUA)
+  // 6. BỐC SỐ TỰ ĐỘNG
   async function drawNewLeads() {
     const btn = document.getElementById('btnGetLeads');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
@@ -574,7 +608,6 @@
 
               // Mặc định là Tiềm năng & Khách dự án
               document.getElementById('cusStatus').value = 'potential'; 
-              document.getElementById('cusGroup').value = 'Buyer'; 
               
               // Luôn gắn đúng Tên + ID của người đang thao tác
               const assignInput = document.getElementById('cusAssigned');
