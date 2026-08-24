@@ -5,6 +5,9 @@
   .stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 100px; opacity: 0.15; transform: rotate(-15deg); }
   .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .search-result-row:hover { background-color: rgba(20, 102, 84, 0.04); }
+  /* Nút thao tác nhanh SĐT */
+  .quick-action-btn { transition: all 0.2s; font-weight: 600; font-size: 12px; padding: 4px 8px; border-radius: 6px; }
+  .quick-action-btn:hover { transform: scale(1.05); }
 </style>
 
 <div class="page-header d-print-none mt-4">
@@ -99,7 +102,7 @@
             </button>
           </div>
           <div class="mt-3 text-muted" style="font-size: 13px; font-style: italic; background: rgba(20, 102, 84, 0.05); padding: 12px; border-radius: 8px;">
-            <i class="ti ti-info-circle me-1 text-info fw-bold"></i> <strong class="text-dark">HƯỚNG DẪN IMPORT:</strong> Mở Google Sheet chứa Data ➔ Chọn <b>Tệp (File)</b> ➔ <b>Chia sẻ (Share)</b> ➔ <b>Xuất bản lên web (Publish to web)</b> ➔ Chọn định dạng <b>Dấu phẩy phân tách (.csv)</b> ➔ Sao chép link và dán vào ô bên trên.
+            <i class="ti ti-info-circle me-1 text-info fw-bold"></i> <strong class="text-dark">HƯỚNG DẪN IMPORT:</strong> Mở Google Sheet chứa Data ➔ Chọn <b>Tệp (File)</b> ➔ <b>Chia sẻ (Share)</b> ➔ <b>Xuất bản lên web (Publish to web)</b> ➔ Chọn định dạng <b>Dấu phẩy phân tách (.csv)</b> ➔ Sao chép link và dán vào ô bên trên. Hệ thống tự động chuẩn hóa số điện thoại và lọc trùng theo <b>Số điện thoại + Dự án</b>.
           </div>
         </div>
       </div>
@@ -320,7 +323,7 @@
     document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>${activeSalesCount} nhân sự</strong> tham gia khai thác data.`;
   }
 
-  // 4. DANH SÁCH ĐANG NỢ CỦA SALES (2 NÚT)
+  // 4. DANH SÁCH ĐANG NỢ CỦA SALES
   async function loadMyAssignedLeads() {
     const container = document.getElementById('myLeadsContainer');
     const myId = window.currentUser.id;
@@ -364,7 +367,13 @@
             <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
           </div>
           <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name || 'Khách hàng'}</h4>
-          <div class="fs-3 fw-bold mb-2" style="color: #0f172a;"><i class="ti ti-phone-call me-2 text-primary"></i>${lead.phone}</div>
+          
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>${lead.phone}</div>
+            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
+            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
+          </div>
+
           <div class="text-muted mb-4" style="font-size: 13px;">
             <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${lead.project_name || 'Không rõ'}</span></div>
             ${lead.notes ? `<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : ''}
@@ -398,9 +407,20 @@
       if (error) throw error;
       if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0">Không tìm thấy dữ liệu.</div>'; return; }
 
-      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th></tr></thead><tbody>`;
+      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>`;
       data.forEach(item => {
-        html += `<tr class="search-result-row"><td class="ps-3 fw-bold text-dark">${item.customer_name || 'Chưa có tên'}</td><td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td><td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td></tr>`;
+        html += `
+          <tr class="search-result-row">
+            <td class="ps-3 fw-bold text-dark">${item.customer_name || 'Chưa có tên'}</td>
+            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
+            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
+            <td class="text-center">
+              <div class="d-flex justify-content-center gap-1">
+                <a href="tel:${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
+                <a href="https://zalo.me/${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
+              </div>
+            </td>
+          </tr>`;
       });
       resContainer.innerHTML = html + '</tbody></table></div>';
     } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
@@ -557,7 +577,6 @@
 
               // Mặc định là Tiềm năng & Khách dự án
               document.getElementById('cusStatus').value = 'potential'; 
-              document.getElementById('cusGroup').value = 'Buyer'; 
               
               // Luôn gắn đúng Tên + ID của người đang thao tác
               const assignInput = document.getElementById('cusAssigned');
@@ -589,7 +608,7 @@
     } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
   }
 
-  // 9. IMPORT BẰNG PAPAPARSE
+  // 9. IMPORT BẰNG PAPAPARSE VÀ LÀM SẠCH SỐ ĐIỆN THOẠI
   function handleImportData() {
     const url = document.getElementById('inputSheetUrl').value.trim();
     if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
@@ -601,33 +620,55 @@
       complete: async function(results) {
         const rows = results.data;
         if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
+        
         let payload = [];
+        let seenKeys = new Set(); // Dùng để lọc trùng trên Client trước khi đẩy
+
         rows.forEach(row => {
-          const phone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\s+/g, '');
-          if(phone) {
-            payload.push({ 
-              id_kho: row['ID_Kho'] || null, 
-              customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
-              phone: phone, 
-              project_name: row['Dự án'] || null, 
-              source: row['Nguồn'] || 'Import', 
-              notes: row['Ghi chú'] || '' 
-            });
+          // 1. Tiền xử lý SĐT: Xóa mọi ký tự không phải là số (dấu +, chữ, khoảng trắng)
+          let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
+          
+          if(rawPhone.length >= 9) {
+            // Lấy đúng 9 số cuối và gắn thêm số 0
+            let cleanPhone = '0' + rawPhone.slice(-9);
+            let projectName = row['Dự án'] || 'Không rõ';
+            
+            // 2. Tạo khóa ghép để chống trùng lặp theo SĐT + Dự án
+            let uniqueKey = cleanPhone + '_' + projectName;
+            
+            if(!seenKeys.has(uniqueKey)) {
+              seenKeys.add(uniqueKey);
+              payload.push({ 
+                id_kho: row['ID_Kho'] || null, 
+                customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
+                phone: cleanPhone, 
+                project_name: projectName, 
+                source: row['Nguồn'] || 'Import', 
+                notes: row['Ghi chú'] || '' 
+              });
+            }
           }
         });
+
         if(payload.length > 0) {
           btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
-          const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone', ignoreDuplicates: true });
-          if(error) Swal.fire('Lỗi DB', error.message, 'error');
-          else {
-            Swal.fire('Thành Công', `Đã bơm dữ liệu vào kho! Đã bỏ qua các số điện thoại bị trùng lặp.`, 'success');
+          // 3. Upsert lên DB với Ràng buộc Composite (phone, project_name)
+          const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
+          
+          if(error) {
+            Swal.fire('Lỗi DB', error.message, 'error');
+          } else {
+            Swal.fire('Thành Công', `Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).`, 'success');
             document.getElementById('inputSheetUrl').value = '';
           }
+        } else {
+          Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning');
         }
         resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
       },
       error: function(err) { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
     });
   }
+  
   function resetImportBtn() { const btn = document.getElementById('btnImportData'); btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; btn.disabled = false; }
 </script>
