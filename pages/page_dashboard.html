@@ -1,6 +1,6 @@
 <style>
-  .metric-card { border: none; border-radius: 12px; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #fff; height: 100%; }
-  .metric-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+  .metric-card { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #fff; height: 100%; }
+  .metric-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20, 102, 84, 0.1); }
   .metric-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
   
   .stat-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #e2e8f0; }
@@ -15,10 +15,10 @@
   <div class="container-xl">
     <div class="row g-2 align-items-center">
       <div class="col">
-        <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
+        <h2 class="page-title" style="color: #146654; font-weight: 700;">
           <i class="ti ti-layout-dashboard me-2"></i> Bảng Điều Khiển
         </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;" id="dashboardSubtitle">Đang tải dữ liệu phân quyền...</div>
+        <div class="text-muted mt-1" style="font-size: 13px;" id="dashboardSubtitle">Đang nạp dữ liệu hệ thống...</div>
       </div>
     </div>
   </div>
@@ -28,7 +28,7 @@
   <div class="container-xl">
     
     <!-- ============================================== -->
-    <!-- DASHBOARD 1: DÀNH CHO TÀI KHOẢN SYSTEM MASTER  -->
+    <!-- DASHBOARD 1: DÀNH CHO TÀI KHOẢN SYSTEM QUẢN TRỊ-->
     <!-- ============================================== -->
     <div id="systemDashboard" style="display: none;">
       
@@ -73,7 +73,7 @@
       <div class="section-title mt-5"><i class="ti ti-cloud-download text-primary me-2 fs-2"></i> THỐNG KÊ KHO DATA MARKETING</div>
       <div class="row g-3 mb-4">
         <div class="col-md-2 col-sm-4">
-          <div class="card metric-card" style="background: linear-gradient(135deg, #146654, #0f4c3f); color: white;">
+          <div class="card metric-card" style="background: linear-gradient(135deg, #146654, #0d4639); color: white;">
             <div class="card-body p-3 text-center d-flex flex-column justify-content-center">
               <div class="opacity-75 fw-bold mb-1" style="font-size: 11px;">TỔNG TRONG KHO</div>
               <div class="fs-1 fw-bold" id="sysMktTotal">0</div>
@@ -83,7 +83,7 @@
         <div class="col-md-2 col-sm-4">
           <div class="card metric-card text-center">
             <div class="card-body p-3">
-              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">TỔNG ĐÃ BỐC</div>
+              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">TỔNG ĐÃ PHÁT</div>
               <div class="fs-2 fw-bold text-primary" id="sysMktDrawn">0</div>
             </div>
           </div>
@@ -105,7 +105,7 @@
           </div>
         </div>
         <div class="col-md-3 col-sm-6">
-          <div class="card metric-card text-center">
+          <div class="card metric-card text-center border-start border-3 border-warning">
             <div class="card-body p-3">
               <div class="text-muted fw-bold mb-1" style="font-size: 11px;">ĐANG NỢ (CHƯA XỬ LÝ)</div>
               <div class="fs-2 fw-bold text-warning" id="sysMktPending">0</div>
@@ -170,9 +170,9 @@
               <table class="table table-vcenter table-hover text-nowrap m-0">
                 <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 1;">
                   <tr>
-                    <th class="ps-3 fw-bold text-dark">TÊN TEAM WORK</th>
-                    <th class="text-center fw-bold text-dark">SỐ THÀNH VIÊN</th>
-                    <th class="text-center fw-bold text-dark">SỐ KHÁCH HÀNG</th>
+                    <th class="ps-3 fw-bold text-dark">TÊN KHÔNG GIAN LÀM VIỆC</th>
+                    <th class="text-center fw-bold text-dark">THÀNH VIÊN</th>
+                    <th class="text-center fw-bold text-dark">KHÁCH HÀNG</th>
                   </tr>
                 </thead>
                 <tbody id="sysTeamList">
@@ -187,7 +187,7 @@
     </div>
 
     <!-- ============================================== -->
-    <!-- DASHBOARD 2: DÀNH CHO CÁ NHÂN (SALES, LEADER, ADMIN) -->
+    <!-- DASHBOARD 2: DÀNH CHO CÁ NHÂN (SALES, LEADER)  -->
     <!-- ============================================== -->
     <div id="personalDashboard" style="display: none;">
       
@@ -197,12 +197,12 @@
         <div class="col-lg-8">
           
           <!-- KHỐI 1: HIỆU SUẤT KHAI THÁC MARKETING -->
-          <div class="section-title"><i class="ti ti-headset text-primary me-2 fs-2"></i> HIỆU SUẤT KHAI THÁC MARKETING</div>
+          <div class="section-title"><i class="ti ti-headset text-primary me-2 fs-2"></i> HIỆU SUẤT KHAI THÁC MARKETING CÁ NHÂN</div>
           <div class="row g-3 mb-4">
             <div class="col-sm-3">
               <div class="card metric-card border-start border-3 border-indigo">
                 <div class="card-body p-3">
-                  <div class="text-muted fw-bold mb-1" style="font-size: 11px;">TỔNG ĐÃ BỐC</div>
+                  <div class="text-muted fw-bold mb-1" style="font-size: 11px;">TỔNG ĐÃ NHẬN</div>
                   <div class="fs-2 fw-bold text-dark" id="myMktTotal"><span class="spinner-border spinner-border-sm"></span></div>
                 </div>
               </div>
@@ -237,7 +237,7 @@
           <div class="section-title mt-5"><i class="ti ti-address-book text-primary me-2 fs-2"></i> PHÂN TÍCH KHÁCH HÀNG CÁ NHÂN</div>
           <div class="row g-3">
             <div class="col-sm-4">
-              <div class="card metric-card" style="height: 100%; background: linear-gradient(135deg, #146654, #0f4c3f);">
+              <div class="card metric-card" style="height: 100%; background: linear-gradient(135deg, #146654, #0d4639);">
                 <div class="card-body p-4 d-flex flex-column justify-content-center text-center">
                   <i class="ti ti-users text-white mb-2" style="font-size: 40px; opacity: 0.5;"></i>
                   <div class="text-white opacity-75 mb-1 fw-bold" style="font-size: 12px; letter-spacing: 0.5px;">TỔNG SỐ KHÁCH HÀNG</div>
@@ -283,7 +283,7 @@
               <div class="fs-1 fw-bold text-dark mb-3" id="myTeamCount">0</div>
               
               <div class="d-flex justify-content-between align-items-center p-3 bg-white border rounded">
-                <span class="text-muted fw-bold" style="font-size: 12px;"><i class="ti ti-files me-1"></i>Tổng khách hàng trong Team(s):</span>
+                <span class="text-muted fw-bold" style="font-size: 12px;"><i class="ti ti-files me-1"></i>Khách hàng trong Team(s):</span>
                 <span class="badge bg-indigo text-white fw-bold fs-4 px-2 py-1" id="myTeamCusCount">0</span>
               </div>
             </div>
@@ -297,7 +297,6 @@
 </div>
 
 <script>
-  // Hàm tạo ProgressBar thu nhỏ
   function renderProgressList(countsObj, labelMap, containerId) {
     let html = '';
     const total = Object.values(countsObj).reduce((sum, val) => sum + val, 0);
@@ -324,7 +323,7 @@
   }
 
   // ==========================================
-  // TẢI CHỈ SỐ DASHBOARD
+  // TẢI CHỈ SỐ DASHBOARD CHÍNH XÁC THEO LUỒNG DATA
   // ==========================================
   async function loadDashboardStats() {
     try {
@@ -335,19 +334,16 @@
 
       const statusMap = { 
         'new': 'Mới tinh', 'contacted': 'Đã liên hệ', 'potential': 'Tiềm năng', 'unqualified': 'Không nhu cầu',
-        'collecting': 'Đang thu thập TT', 'listing': 'Đang rao thuê/bán', 'closed': 'Đã chốt', 'suspended': 'Tạm ngưng',
-        'searching': 'Đang tìm nhà', 'viewing': 'Đang đi xem', 'rented': 'Đã chốt thuê', 'canceled': 'Hủy bỏ' 
+        'collecting': 'Đang thu thập', 'listing': 'Đang rao', 'closed': 'Đã chốt', 'suspended': 'Tạm ngưng',
+        'searching': 'Đang tìm', 'viewing': 'Đang đi xem', 'rented': 'Đã chốt thuê', 'canceled': 'Hủy bỏ' 
       };
 
-      // ==========================================
-      // KỊCH BẢN 1: TÀI KHOẢN SYSTEM MASTER
-      // ==========================================
-      if (role === 'system') {
-        document.getElementById('dashboardSubtitle').innerText = "Tóm tắt hiệu suất hệ thống toàn công ty";
+      if (role === 'system' || role === 'admin') {
+        document.getElementById('dashboardSubtitle').innerText = "Tóm tắt hiệu suất quản trị hệ thống đa chiều";
         document.getElementById('systemDashboard').style.display = 'block';
         document.getElementById('personalDashboard').style.display = 'none';
         
-        // 1. THỐNG KÊ NHÂN SỰ
+        // 1. NHÂN SỰ
         window.sbClient.from('safe_members').select('role, is_active').neq('role', 'system').then(({data}) => {
           if(data) {
             let admin = 0, leader = 0, sales = 0, locked = 0;
@@ -366,29 +362,25 @@
           }
         });
 
-        // 2. THỐNG KÊ MARKETING TOÀN HỆ THỐNG
-        window.sbClient.from('marketing_leads').select('status, quick_report, rejected_by').then(({data}) => {
-          if(data) {
-            let total = data.length;
-            let potential = 0, pending = 0, rejected = 0, drawn = 0;
-            data.forEach(l => {
-              // Phân tích trạng thái từng dòng
-              let hasBeenDrawn = false;
-              if (l.status === 'Đã phát' && !l.quick_report) { pending++; hasBeenDrawn = true; }
-              if (l.quick_report === 'Tiềm năng') { potential++; hasBeenDrawn = true; }
-              if (l.status === 'Rác' || (l.rejected_by && l.rejected_by.length > 0)) { rejected++; hasBeenDrawn = true; }
-              
-              if(hasBeenDrawn || l.status !== 'Chưa phát') drawn++;
+        // 2. KHO MARKETING (Khớp tuyệt đối với trang Report Marketing)
+        const { data: mktData } = await window.sbClient.from('marketing_leads').select('status, quick_report, rejected_by');
+        if (mktData) {
+            let total = mktData.length;
+            let pending = 0, potential = 0, rejected = 0, drawn = 0;
+            mktData.forEach(l => {
+                if (l.status !== 'Chưa phát') drawn++;
+                if (l.status === 'Đã phát' && !l.quick_report) pending++;
+                if (l.quick_report === 'Tiềm năng') potential++;
+                if (l.rejected_by && l.rejected_by.length > 0) rejected++;
             });
             document.getElementById('sysMktTotal').innerText = new Intl.NumberFormat().format(total);
             document.getElementById('sysMktDrawn').innerText = new Intl.NumberFormat().format(drawn);
             document.getElementById('sysMktPotential').innerText = new Intl.NumberFormat().format(potential);
             document.getElementById('sysMktRejected').innerText = new Intl.NumberFormat().format(rejected);
             document.getElementById('sysMktPending').innerText = new Intl.NumberFormat().format(pending);
-          }
-        });
+        }
 
-        // 3. THỐNG KÊ KHÁCH HÀNG CÁ NHÂN TOÀN HỆ THỐNG
+        // 3. KHÁCH HÀNG CÁ NHÂN 
         window.sbClient.from('customers').select('lead_status, source, data_source').then(({data}) => {
           if(data) {
             document.getElementById('sysCusTotal').innerText = new Intl.NumberFormat().format(data.length);
@@ -404,7 +396,7 @@
           }
         });
 
-        // 4. THỐNG KÊ TEAM WORK TOÀN HỆ THỐNG
+        // 4. TEAM WORK
         Promise.all([
           window.sbClient.from('teams').select('id, name'),
           window.sbClient.from('team_members').select('team_id'),
@@ -436,32 +428,38 @@
           });
         });
 
-      } 
-      // ==========================================
-      // KỊCH BẢN 2: TÀI KHOẢN CÁ NHÂN (ADMIN / LEADER / SALES)
-      // ==========================================
-      else {
-        document.getElementById('dashboardSubtitle').innerText = "Tóm tắt năng suất và dữ liệu cá nhân của bạn";
+      } else {
+        document.getElementById('dashboardSubtitle').innerText = "Tóm tắt dữ liệu và hiệu suất làm việc cá nhân của bạn";
         document.getElementById('systemDashboard').style.display = 'none';
         document.getElementById('personalDashboard').style.display = 'block';
 
-        // 1. THỐNG KÊ MARKETING CÁ NHÂN
-        Promise.all([
-          window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('assigned_to', myId).eq('status', 'Đã phát').is('quick_report', null), // Pending
-          window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('assigned_to', myId).eq('quick_report', 'Tiềm năng'), // Potential
-          window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).contains('rejected_by', [myId]) // Rejected
-        ]).then(([resPend, resPot, resRej]) => {
-          const pending = resPend.count || 0;
-          const potential = resPot.count || 0;
-          const rejected = resRej.count || 0;
-          
-          document.getElementById('myMktPending').innerText = new Intl.NumberFormat().format(pending);
-          document.getElementById('myMktPotential').innerText = new Intl.NumberFormat().format(potential);
-          document.getElementById('myMktRejected').innerText = new Intl.NumberFormat().format(rejected);
-          document.getElementById('myMktTotal').innerText = new Intl.NumberFormat().format(pending + potential + rejected);
-        });
+        // 1. THỐNG KÊ MARKETING CÁ NHÂN (Tính toán theo Sổ Đen & Quyền Phụ Trách)
+        const { data: myMktData } = await window.sbClient.from('marketing_leads')
+          .select('status, quick_report, assigned_to, rejected_by')
+          .or(`assigned_to.eq.${myId},rejected_by.cs.{${myId}}`);
 
-        // 2. THỐNG KÊ KHÁCH HÀNG CÁ NHÂN
+        let pending = 0, potential = 0, rejected = 0, total = 0;
+        
+        if (myMktData) {
+          myMktData.forEach(lead => {
+            if (lead.assigned_to === myId) {
+                total++;
+                if (lead.status === 'Đã phát' && !lead.quick_report) pending++;
+                if (lead.quick_report === 'Tiềm năng') potential++;
+            }
+            if (lead.rejected_by && lead.rejected_by.includes(myId)) {
+                total++;
+                rejected++;
+            }
+          });
+        }
+        
+        document.getElementById('myMktPending').innerText = new Intl.NumberFormat().format(pending);
+        document.getElementById('myMktPotential').innerText = new Intl.NumberFormat().format(potential);
+        document.getElementById('myMktRejected').innerText = new Intl.NumberFormat().format(rejected);
+        document.getElementById('myMktTotal').innerText = new Intl.NumberFormat().format(total);
+
+        // 2. KHÁCH HÀNG CÁ NHÂN
         window.sbClient.from('customers').select('lead_status, source').eq('assigned_to', myId).then(({data}) => {
           if (!data || data.length === 0) {
             document.getElementById('myTotalCus').innerText = 0;
@@ -480,7 +478,7 @@
           renderProgressList(srcCount, null, 'mySourceBreakdownList');
         });
 
-        // 3. THỐNG KÊ TEAM WORK CÁ NHÂN
+        // 3. THỐNG KÊ TEAM WORK
         window.sbClient.from('team_members').select('team_id').eq('member_id', myId).then(async ({data: tm}) => {
           if (!tm || tm.length === 0) {
             document.getElementById('myTeamCount').innerText = 0;
@@ -494,7 +492,6 @@
         });
 
       }
-
     } catch (error) { console.error("Lỗi khởi tạo Dashboard:", error); }
   }
 </script>
