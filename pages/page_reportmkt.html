@@ -1,665 +1,350 @@
 <style>
-  .lead-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; }
-  .lead-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-  .stat-card { border: none; border-radius: 12px; color: white; overflow: hidden; position: relative; }
-  .stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 100px; opacity: 0.15; transform: rotate(-15deg); }
-  .btn-report { border-radius: 8px; font-weight: 600; font-size: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .rep-stat-card { border: none; border-radius: 12px; color: white; overflow: hidden; position: relative; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: 100%; }
+  .rep-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20, 102, 84, 0.15); }
+  .rep-stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.15; transform: rotate(-15deg); }
   .search-result-row:hover { background-color: rgba(20, 102, 84, 0.04); }
+  .table-report th { background-color: #f1f5f9 !important; color: #475569 !important; font-weight: 700 !important; font-size: 11px !important; letter-spacing: 0.5px; }
+  .dept-header { background: #f8fafc; border-top: 2px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
 </style>
 
-<div class="page-header d-print-none mt-4">
-  <div class="container-xl">
-    <div class="row g-2 align-items-center">
-      <div class="col">
-        <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
-          <i class="ti ti-headset me-2"></i> Kho Data Marketing
-        </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Phân phối data tự động và báo cáo hiệu suất Telesale</div>
+<!-- MÀN HÌNH KHÓA (CHỈ CHO SYSTEM) -->
+<div id="reportAccessDenied" style="display: none;" class="container-xl py-5 text-center mt-5">
+  <i class="ti ti-shield-lock text-danger mb-3" style="font-size: 80px; opacity: 0.6;"></i>
+  <h2 class="fw-bold text-dark fs-1">Khu Vực Tuyệt Mật</h2>
+  <p class="text-muted fs-3">Chỉ tài khoản Quản trị cấp cao (SYSTEM) mới được quyền truy cập và giám sát dữ liệu này.</p>
+</div>
+
+<!-- NỘI DUNG CHÍNH CỦA TRANG -->
+<div id="reportContent" style="display: none;">
+  <div class="page-header d-print-none mt-4">
+    <div class="container-xl">
+      <div class="row g-2 align-items-center">
+        <div class="col">
+          <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
+            <i class="ti ti-radar me-2"></i> Giám Sát Chi Tiết Kho Marketing
+          </h2>
+          <div class="text-muted mt-1" style="font-size: 13px;">Thống kê tổng quan, quản lý tệp dữ liệu và đánh giá năng suất từng nhân sự</div>
+        </div>
+        <div class="col-auto ms-auto d-print-none text-muted fw-bold" style="font-size: 13px;" id="repActiveSalesCount">
+          <span class="spinner-border spinner-border-sm me-2"></span> Đang đồng bộ...
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="page-body">
-  <div class="container-xl">
-    
-    <!-- ============================================== -->
-    <!-- ADMIN PANEL: CHỈ DÀNH CHO ROLE = SYSTEM        -->
-    <!-- ============================================== -->
-    <div id="adminMarketingPanel" style="display: none; margin-bottom: 30px;">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="m-0" style="font-weight: 700; color: #146654;">Tổng Quan Kho Dữ Liệu</h3>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-sales-report" onclick="loadAdminSalesStats()">
-          <i class="ti ti-chart-bar me-2"></i> Báo Cáo Hiệu Suất Sales
-        </button>
-      </div>
-
-      <!-- 4 THẺ CHỈ SỐ GLOBAL -->
-      <div class="row g-3 mb-4">
-        <div class="col-md-3">
-          <div class="card stat-card" style="background: linear-gradient(135deg, #146654, #0f4c3f);">
-            <div class="card-body p-4">
-              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 12px;">TỔNG DATA TRONG KHO</div>
-              <h2 class="m-0" style="font-size: 32px; font-weight: 800;" id="statTotal"><span class="spinner-border spinner-border-sm"></span></h2>
-              <i class="ti ti-database stat-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card stat-card" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
-            <div class="card-body p-4">
-              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 12px;">ĐÃ PHÁT CHO SALES</div>
-              <h2 class="m-0" style="font-size: 32px; font-weight: 800;" id="statAssigned"><span class="spinner-border spinner-border-sm"></span></h2>
-              <i class="ti ti-send stat-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-            <div class="card-body p-4">
-              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 12px;">ĐANG XỬ LÝ (CHƯA BÁO CÁO)</div>
-              <h2 class="m-0" style="font-size: 32px; font-weight: 800;" id="statPending"><span class="spinner-border spinner-border-sm"></span></h2>
-              <i class="ti ti-clock-hour-4 stat-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
-            <div class="card-body p-4">
-              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 12px;">ĐÃ CHUYỂN TIỀM NĂNG</div>
-              <h2 class="m-0" style="font-size: 32px; font-weight: 800;" id="statPotential"><span class="spinner-border spinner-border-sm"></span></h2>
-              <i class="ti ti-star stat-icon"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TÌM KIẾM NHANH -->
-      <div id="quickSearchPanel" class="card shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0;">
-        <div class="card-body">
-          <h4 class="mb-3" style="color: #146654; font-weight: 700;"><i class="ti ti-search me-2"></i>Tra Cứu Dữ Liệu Nhanh</h4>
-          <div class="d-flex gap-3">
-            <div class="input-icon flex-grow-1">
-              <span class="input-icon-addon"><i class="ti ti-phone text-muted"></i></span>
-              <input type="text" id="searchPhoneInput" class="form-control form-control-lg" placeholder="Nhập số điện thoại cần tìm (VD: 090 5555 628)..." onkeypress="if(event.key === 'Enter') triggerQuickSearch()">
-            </div>
-            <button class="btn btn-brand btn-lg px-4" onclick="triggerQuickSearch()" style="font-weight: 600;">
-              <i class="ti ti-search me-2"></i> Tìm kiếm
-            </button>
-          </div>
-          <div id="quickSearchResults" class="mt-3" style="display: none;"></div>
-        </div>
-      </div>
-
-      <!-- IMPORT DATA -->
-      <div id="importDataPanel" class="card shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-3">
-            <i class="ti ti-brand-google-drive fs-1 text-success"></i>
-            <div class="flex-grow-1">
-              <input type="text" id="inputSheetUrl" class="form-control" placeholder="Dán link Google Sheet chứa Data Marketing vào đây...">
-            </div>
-            <button class="btn btn-brand px-4" id="btnImportData" onclick="handleImportData()">
-              <i class="ti ti-cloud-upload me-2"></i> Import Data
-            </button>
-          </div>
-          <div class="mt-3 text-muted" style="font-size: 13px; font-style: italic; background: rgba(20, 102, 84, 0.05); padding: 12px; border-radius: 8px;">
-            <i class="ti ti-info-circle me-1 text-info fw-bold"></i> <strong class="text-dark">HƯỚNG DẪN IMPORT:</strong> Mở Google Sheet chứa Data ➔ Chọn <b>Tệp (File)</b> ➔ <b>Chia sẻ (Share)</b> ➔ <b>Xuất bản lên web (Publish to web)</b> ➔ Chọn định dạng <b>Dấu phẩy phân tách (.csv)</b> ➔ Sao chép link và dán vào ô bên trên. Hệ thống tự động chuẩn hóa số điện thoại và lọc trùng.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- KHU VỰC BỐC SỐ CỦA MỌI SALES                   -->
-    <!-- ============================================== -->
-    <div class="d-flex align-items-center justify-content-between mb-4 mt-4 bg-white p-3 border" style="border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-      <h3 class="m-0" style="font-weight: 700; color: #1e293b;"><i class="ti ti-list-check me-2 text-primary"></i> Xử lý Data</h3>
+  <div class="page-body">
+    <div class="container-xl">
       
-      <div class="d-flex gap-2 align-items-center">
-        <select id="selectLeadProject" class="form-select" style="width: 250px; font-weight: 500;">
-          <option value="all">-- Đang tải dự án... --</option>
-        </select>
-        <button class="btn btn-primary shadow-sm" id="btnGetLeads" onclick="drawNewLeads()" style="border-radius: 8px; font-weight: 600;">
-          <i class="ti ti-download me-2"></i> Nhận 10 Data
-        </button>
-      </div>
-    </div>
-
-    <div id="pendingWarning" class="alert alert-warning mb-4 shadow-sm" style="display: none; border-radius: 8px;">
-      <i class="ti ti-alert-triangle me-2"></i> <strong>Chú ý:</strong> Bạn phải "Báo cáo" dứt điểm các số đang nợ ở bên dưới trước khi được bốc số mới!
-    </div>
-
-    <div class="row g-3" id="myLeadsContainer">
-      <div class="col-12 text-center py-5 text-muted">
-        <span class="spinner-border spinner-border-sm me-2"></span> Đang tải danh sách Data của bạn...
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ============================================== -->
-<!-- MODAL BÁO CÁO CHO ADMIN (SYSTEM CHỈ ĐỊNH)      -->
-<!-- ============================================== -->
-<div class="modal modal-blur fade" id="modal-sales-report" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
-    <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
-      <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-        <h5 class="modal-title" style="font-weight: 700; color: #1e293b;"><i class="ti ti-chart-bar me-2 text-primary"></i> Báo cáo Hiệu suất khai thác Data</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body p-0">
-        <div class="p-3 bg-white border-bottom" id="adminActiveSalesCount">
-          <span class="spinner-border spinner-border-sm text-primary"></span> Đang tính toán...
+      <!-- HÀNG 1: 5 CHỈ SỐ KHỚP DASHBOARD -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-2 col-sm-6">
+          <div class="card rep-stat-card" style="background: linear-gradient(135deg, #146654, #0d4639);">
+            <div class="card-body p-3">
+              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 11px;">TỔNG DATA TRONG KHO</div>
+              <h2 class="m-0" style="font-size: 28px; font-weight: 800;" id="repTotal"><span class="spinner-border spinner-border-sm"></span></h2>
+              <i class="ti ti-database rep-stat-icon"></i>
+            </div>
+          </div>
         </div>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table table-hover text-nowrap m-0">
-            <thead style="background: #f1f5f9;">
+        <div class="col-md-2 col-sm-6">
+          <div class="card rep-stat-card" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+            <div class="card-body p-3">
+              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 11px;">TỔNG ĐÃ PHÁT</div>
+              <h2 class="m-0" style="font-size: 28px; font-weight: 800;" id="repDrawn"><span class="spinner-border spinner-border-sm"></span></h2>
+              <i class="ti ti-send rep-stat-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-4">
+          <div class="card rep-stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <div class="card-body p-3">
+              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 11px;">ĐÃ CHUYỂN TIỀM NĂNG</div>
+              <h2 class="m-0" style="font-size: 28px; font-weight: 800;" id="repPotential"><span class="spinner-border spinner-border-sm"></span></h2>
+              <i class="ti ti-star rep-stat-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+          <div class="card rep-stat-card" style="background: linear-gradient(135deg, #ef4444, #e11d48);">
+            <div class="card-body p-3">
+              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 11px;">ĐÃ BỎ QUA</div>
+              <h2 class="m-0" style="font-size: 28px; font-weight: 800;" id="repRejected"><span class="spinner-border spinner-border-sm"></span></h2>
+              <i class="ti ti-phone-off rep-stat-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-4">
+          <div class="card rep-stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            <div class="card-body p-3">
+              <div class="text-white opacity-75 mb-1" style="font-weight: 600; font-size: 11px;">ĐANG NỢ (CHƯA XỬ LÝ)</div>
+              <h2 class="m-0" style="font-size: 28px; font-weight: 800;" id="repPending"><span class="spinner-border spinner-border-sm"></span></h2>
+              <i class="ti ti-clock-hour-4 rep-stat-icon"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HÀNG 2: TRA CỨU & IMPORT DATA -->
+      <div class="row g-4 mb-4">
+        <!-- TRA CỨU NHANH -->
+        <div class="col-lg-6">
+          <div class="card h-100 shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div class="card-body">
+              <h4 class="mb-3" style="color: #146654; font-weight: 700;"><i class="ti ti-search me-2"></i>Tra Cứu Dữ Liệu Nhanh</h4>
+              <div class="d-flex gap-3">
+                <div class="input-icon flex-grow-1">
+                  <span class="input-icon-addon"><i class="ti ti-phone text-muted"></i></span>
+                  <input type="text" id="repSearchPhone" class="form-control form-control-lg" placeholder="Nhập số điện thoại (VD: 090 5555...)" onkeypress="if(event.key === 'Enter') triggerReportQuickSearch()">
+                </div>
+                <button class="btn btn-brand btn-lg px-4" onclick="triggerReportQuickSearch()" style="font-weight: 600;">Tìm</button>
+              </div>
+              <div id="repSearchResults" class="mt-3" style="display: none; max-height: 150px; overflow-y: auto;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- IMPORT DATA -->
+        <div class="col-lg-6">
+          <div class="card h-100 shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div class="card-body">
+              <h4 class="mb-3" style="color: #146654; font-weight: 700;"><i class="ti ti-cloud-upload me-2"></i>Bơm Data vào Kho (Import CSV)</h4>
+              <div class="d-flex align-items-center gap-3">
+                <div class="flex-grow-1">
+                  <input type="text" id="repInputSheet" class="form-control form-control-lg" placeholder="Dán link Google Sheet (.csv) vào đây...">
+                </div>
+                <button class="btn btn-success btn-lg px-4" id="btnRepImport" onclick="handleReportImportData()" style="font-weight: 600;">
+                  Import Data
+                </button>
+              </div>
+              <div class="mt-2 text-muted" style="font-size: 11px; font-style: italic;">
+                Hệ thống tự động chuẩn hóa số điện thoại và loại bỏ các dòng bị trùng lặp (Số điện thoại + Dự án) trước khi đưa vào kho.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HÀNG 3: BẢNG BÁO CÁO HIỆU SUẤT CHI TIẾT THEO PHÒNG BAN -->
+      <div class="card shadow-sm mb-5" style="border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h3 class="card-title m-0 fw-bold text-dark"><i class="ti ti-users-group me-2 text-primary"></i> Báo Cáo Hiệu Suất Telesale Chi Tiết</h3>
+        </div>
+        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+          <table class="table table-vcenter table-report table-hover text-nowrap m-0">
+            <thead style="position: sticky; top: 0; z-index: 10;">
               <tr>
                 <th class="ps-4">TÊN NHÂN VIÊN (SALES)</th>
                 <th class="text-center" title="Tổng số data đã rút khỏi kho">TỔNG ĐÃ NHẬN</th>
-                <th class="text-center text-primary" title="Số lượng được đánh giá là Tiềm năng">SỐ TIỀM NĂNG</th>
+                <th class="text-center text-success" title="Số lượng được đánh giá là Tiềm năng">SỐ TIỀM NĂNG</th>
                 <th class="text-center text-danger" title="Số lượng đã bấm Bỏ qua">ĐÃ BỎ QUA</th>
                 <th class="text-center text-warning" title="Số lượng đang giữ chưa báo cáo">ĐANG NỢ (CHƯA XỬ LÝ)</th>
+                <th class="text-center">TỶ LỆ CHUYỂN ĐỔI</th>
               </tr>
             </thead>
-            <tbody id="adminSalesStatsBody">
-              <tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>
+            <tbody id="repSalesStatsBody">
+              <tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Đang tổng hợp dữ liệu toàn hệ thống...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div class="modal-footer" style="background: white;">
-        <button type="button" class="btn btn-outline-secondary ms-auto" data-bs-dismiss="modal">Đóng cửa sổ</button>
-      </div>
+
     </div>
   </div>
 </div>
 
 <script>
-  let myPendingLeads = [];
-  let globalSalesForMarketing = [];
-  
   // ==========================================
-  // 1. KHỞI TẠO TRANG
+  // KHỞI TẠO MODULE (BẢO MẬT ROLE = SYSTEM)
   // ==========================================
-  async function loadMarketingModule() {
-    const role = window.currentUser.role;
+  async function loadReportMktModule() {
+    if (!window.currentUser || window.currentUser.role !== 'system') {
+      document.getElementById('reportContent').style.display = 'none';
+      document.getElementById('reportAccessDenied').style.display = 'block';
+      return;
+    }
     
+    document.getElementById('reportAccessDenied').style.display = 'none';
+    document.getElementById('reportContent').style.display = 'block';
+
+    // 1. Load danh sách Sales kèm Phòng ban
     const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role, department').eq('is_active', true);
-    if(sData) globalSalesForMarketing = sData;
+    if(sData) window.globalSalesForReport = sData;
 
-    // PHÂN QUYỀN HIỂN THỊ TẬT ĐỐI THEO ROLE = SYSTEM
-    if (role === 'system') {
-      document.getElementById('adminMarketingPanel').style.display = 'block';
-      await loadAdminDashboard();
-    } else {
-      // Ẩn toàn bộ Admin Panel, Import, Quick Search với role không phải system
-      document.getElementById('adminMarketingPanel').style.display = 'none';
-      const searchPanel = document.getElementById('quickSearchPanel');
-      const importPanel = document.getElementById('importDataPanel');
-      if(searchPanel) searchPanel.style.display = 'none';
-      if(importPanel) importPanel.style.display = 'none';
-    }
-
-    await loadAvailableProjects();
-    await loadMyAssignedLeads();
+    // 2. Chạy đồng thời 2 luồng tải dữ liệu nặng
+    await Promise.all([
+      loadReportExactMetrics(),
+      loadReportSalesStats()
+    ]);
   }
 
   // ==========================================
-  // 2. LOAD DROPDOWN DỰ ÁN
+  // 1. TẢI 5 CHỈ SỐ TỔNG QUAN (COUNT EXACT - Vượt qua 1000 limit)
   // ==========================================
-  async function loadAvailableProjects() {
-    const selectEl = document.getElementById('selectLeadProject'); 
-    const btnGetLeads = document.getElementById('btnGetLeads');
-    if (!selectEl) return;
-    
-    selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
-    selectEl.disabled = true;
-
-    try {
-      const { data, error } = await window.sbClient.rpc('get_marketing_project_stats');
-      if (error) throw error;
-
-      const role = window.currentUser.role;
-      const allowedProjects = window.currentUser.allowed_projects || [];
-      
-      if (!data || data.length === 0) {
-        selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
-        btnGetLeads.disabled = true;
-        return;
-      }
-
-      let filteredData = data;
-      if (role !== 'system') { // Sales/Leader/Admin chỉ bốc theo quyền dự án
-        filteredData = data.filter(item => allowedProjects.includes(item.project_name));
-      }
-
-      if (filteredData.length === 0) {
-        selectEl.innerHTML = '<option value="">-- Bạn chưa được cấp quyền lấy dự án nào --</option>';
-        btnGetLeads.disabled = true;
-        return;
-      }
-
-      let options = '';
-      if (role === 'system' || filteredData.length > 1) {
-        options += '<option value="all">-- Chọn bốc ngẫu nhiên (Tất cả) --</option>';
-      }
-      filteredData.forEach(item => {
-        options += `<option value="${item.project_name}">${item.project_name} (Còn ${item.total_available} số)</option>`;
-      });
-      
-      selectEl.innerHTML = options;
-      if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
-
-    } catch (err) {
-      console.error("Lỗi tải kho data:", err);
-      selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
-    } finally {
-      selectEl.disabled = false;
-    }
-  }
-
-  // ==========================================
-  // 3. THỐNG KÊ ADMIN (SỬ DỤNG PROMISE.ALL TƯƠNG TỰ DASHBOARD)
-  // ==========================================
-  async function loadAdminDashboard() {
+  async function loadReportExactMetrics() {
     try {
       Promise.all([
         window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }),
         window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).neq('status', 'Chưa phát'),
         window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null),
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng')
-      ]).then(([resTotal, resAssigned, resPending, resPotential]) => {
-        document.getElementById('statTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
-        document.getElementById('statAssigned').innerText = new Intl.NumberFormat().format(resAssigned.count || 0);
-        document.getElementById('statPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
-        document.getElementById('statPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng'),
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).neq('rejected_by', '{}')
+      ]).then(([resTotal, resDrawn, resPending, resPotential, resRejected]) => {
+        document.getElementById('repTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
+        document.getElementById('repDrawn').innerText = new Intl.NumberFormat().format(resDrawn.count || 0);
+        document.getElementById('repPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
+        document.getElementById('repPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
+        document.getElementById('repRejected').innerText = new Intl.NumberFormat().format(resRejected.count || 0);
       });
-    } catch (err) { console.error('Lỗi tải Dashboard MKT:', err); }
+    } catch (err) { console.error('Lỗi tải Metrics:', err); }
   }
 
   // ==========================================
-  // 3.5 BÁO CÁO SALES CHI TIẾT (VÉT CẠN DATA BẰNG PAGINATION)
+  // 2. BẢNG BÁO CÁO SALES CHI TIẾT (Theo Phòng Ban)
   // ==========================================
-  async function loadAdminSalesStats() {
-    const tbody = document.getElementById('adminSalesStatsBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang vét cạn dữ liệu máy chủ để tổng hợp...</td></tr>';
+  async function loadReportSalesStats() {
+    const tbody = document.getElementById('repSalesStatsBody');
     
-    try {
-      let allLeads = [];
-      let hasMore = true;
-      let page = 0;
-      const pageSize = 1000;
+    // Quét toàn bộ data đang được khai thác
+    const { data, error } = await window.sbClient.from('marketing_leads')
+      .select('assigned_to, status, quick_report, rejected_by')
+      .or('assigned_to.not.is.null,rejected_by.neq.{}');
+    
+    if (error) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>'; return; }
+    if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Chưa có dữ liệu nào được phát cho Sales.</td></tr>'; return; }
 
-      // Vét cạn toàn bộ data vượt qua giới hạn 1,000 dòng của Supabase
-      while (hasMore) {
-        const { data, error } = await window.sbClient.from('marketing_leads')
-          .select('assigned_to, status, quick_report, rejected_by')
-          .or('assigned_to.not.is.null,rejected_by.neq.{}')
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-        
-        if (error) throw error;
-        
-        allLeads = allLeads.concat(data);
-        if (data.length < pageSize) hasMore = false;
-        page++;
+    let statsMap = {};
+    
+    // Gắn thông tin cơ bản cho Sales (Bỏ qua system)
+    window.globalSalesForReport.forEach(sale => {
+      if (sale.role !== 'system') {
+        statsMap[sale.id] = { 
+          name: sale.full_name, 
+          role: sale.role, 
+          department: sale.department || 'Chưa phân phòng',
+          total: 0, pending: 0, potential: 0, rejected: 0 
+        };
       }
+    });
 
-      if(allLeads.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nào được khai thác.</td></tr>'; 
-        return; 
+    // Cộng dồn chỉ số
+    data.forEach(lead => {
+      if(lead.assigned_to && statsMap[lead.assigned_to]) {
+        statsMap[lead.assigned_to].total++;
+        if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.assigned_to].pending++;
+        if (lead.quick_report === 'Tiềm năng') statsMap[lead.assigned_to].potential++;
       }
-
-      let statsMap = {};
       
-      // Tạo Map Sales theo phòng ban, ngoại trừ 'system'
-      globalSalesForMarketing.forEach(sale => {
-        if (sale.role !== 'system') {
-          statsMap[sale.id] = { 
-            name: sale.full_name, 
-            role: sale.role, 
-            department: sale.department || 'Chưa phân phòng',
-            total: 0, pending: 0, potential: 0, rejected: 0 
-          };
-        }
-      });
-
-      // Xử lý logic đếm chính xác dựa trên Sổ đen (rejected_by) và Người phụ trách (assigned_to)
-      allLeads.forEach(lead => {
-        if(lead.assigned_to && statsMap[lead.assigned_to]) {
-          statsMap[lead.assigned_to].total++;
-          if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.assigned_to].pending++;
-          if (lead.quick_report === 'Tiềm năng') statsMap[lead.assigned_to].potential++;
-        }
-        
-        if(lead.rejected_by && lead.rejected_by.length > 0) {
-          lead.rejected_by.forEach(rejectedId => {
-            if (statsMap[rejectedId]) {
-              statsMap[rejectedId].total++;
-              statsMap[rejectedId].rejected++;
-            }
-          });
-        }
-      });
-
-      tbody.innerHTML = '';
-      
-      let activeSalesList = Object.values(statsMap).filter(st => st.total > 0);
-      
-      // Sắp xếp báo cáo theo Phòng Ban -> Tên
-      activeSalesList.sort((a, b) => {
-        if (a.department === 'Chưa phân phòng') return 1; 
-        if (b.department === 'Chưa phân phòng') return -1;
-        return a.department.localeCompare(b.department);
-      });
-
-      let activeSalesCount = activeSalesList.length;
-
-      if (activeSalesCount === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có nhân sự nào tham gia bốc số.</td></tr>';
-      } else {
-        let currentDept = null;
-
-        activeSalesList.forEach(st => {
-          if (currentDept !== st.department) {
-            currentDept = st.department;
-            tbody.innerHTML += `
-              <tr>
-                <td colspan="5" class="bg-light text-danger fw-bold text-uppercase" style="font-size: 11px; padding: 8px 16px; border-top: 2px solid #e2e8f0;">
-                  <i class="ti ti-building-skyscraper me-1"></i> <b>${currentDept}</b>
-                </td>
-              </tr>
-            `;
+      if(lead.rejected_by && lead.rejected_by.length > 0) {
+        lead.rejected_by.forEach(rejectedId => {
+          if (statsMap[rejectedId]) {
+            statsMap[rejectedId].total++;
+            statsMap[rejectedId].rejected++;
           }
-
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
-            <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-            <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
-            <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
-            <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
-          `;
-          tbody.appendChild(tr);
         });
       }
-
-      document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>${activeSalesCount} nhân sự</strong> tham gia khai thác data.`;
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Lỗi: ${err.message}</td></tr>`;
-    }
-  }
-
-  // ==========================================
-  // CÁC HÀM XỬ LÝ KHÁC GIỮ NGUYÊN (LOAD LEADS, QUICK SEARCH, DRAW, REPORT, IMPORT)
-  // ==========================================
-
-  async function loadMyAssignedLeads() {
-    const container = document.getElementById('myLeadsContainer');
-    const myId = window.currentUser.id;
-
-    const { data, error } = await window.sbClient.from('marketing_leads')
-      .select('*').eq('assigned_to', myId).eq('status', 'Đã phát').is('quick_report', null).order('assigned_at', { ascending: false });
-
-    if (error) { container.innerHTML = '<div class="col-12 text-danger">Lỗi tải dữ liệu.</div>'; return; }
-    myPendingLeads = data || [];
-
-    const btnGet = document.getElementById('btnGetLeads');
-    const warning = document.getElementById('pendingWarning');
-    const isProjectEmpty = document.getElementById('selectLeadProject').options.length === 0 || document.getElementById('selectLeadProject').value === "";
-    
-    if (myPendingLeads.length > 0) {
-      btnGet.disabled = true; btnGet.innerHTML = '<i class="ti ti-lock me-2"></i> Phải xử lý xong số cũ';
-      warning.style.display = 'block';
-    } else if (!isProjectEmpty) {
-      btnGet.disabled = false; btnGet.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data Mới';
-      warning.style.display = 'none';
-    }
-
-    container.innerHTML = '';
-    if (myPendingLeads.length === 0) {
-      container.innerHTML = `<div class="col-12 text-center py-5"><i class="ti ti-database-off text-muted" style="font-size: 80px; opacity: 0.2;"></i><div class="text-muted fs-3 mt-3">Bạn đã xử lý hết Data. Hãy chọn Dự án và bốc số tiếp nhé!</div></div>`; return;
-    }
-
-    myPendingLeads.forEach((lead, index) => {
-      const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
-      const col = document.createElement('div'); col.className = 'col-md-6';
-      
-      let historyHtml = '';
-      if (lead.report_history && lead.report_history.length > 0) {
-          historyHtml = `<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">${lead.report_history.join(' ➔ ')}</span></div>`;
-      }
-
-      col.innerHTML = `
-        <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp: ${(lead.attempt_count || 0) + 1}/3</span>
-            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
-          </div>
-          <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name || 'Khách hàng'}</h4>
-          
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>${lead.phone}</div>
-            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
-            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
-          </div>
-
-          <div class="text-muted mb-4" style="font-size: 13px;">
-            <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${lead.project_name || 'Không rõ'}</span></div>
-            ${lead.notes ? `<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : ''}
-            ${historyHtml}
-          </div>
-          
-          <div class="mt-auto d-flex gap-2">
-            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
-              <i class="ti ti-phone-off fs-3"></i> BỎ QUA
-            </button>
-            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
-              <i class="ti ti-star fs-3"></i> TIỀM NĂNG
-            </button>
-          </div>
-        </div>
-      `;
-      container.appendChild(col);
     });
+
+    tbody.innerHTML = '';
+    
+    // Lọc ra các Sales có hoạt động (total > 0)
+    let activeSalesList = Object.values(statsMap).filter(st => st.total > 0);
+    
+    // Sắp xếp theo Phòng Ban (A-Z)
+    activeSalesList.sort((a, b) => {
+      if (a.department === 'Chưa phân phòng') return 1; 
+      if (b.department === 'Chưa phân phòng') return -1;
+      return a.department.localeCompare(b.department);
+    });
+
+    let activeSalesCount = activeSalesList.length;
+
+    if (activeSalesCount === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fs-3">Chưa có nhân sự nào tham gia bốc số.</td></tr>';
+    } else {
+      let currentDept = null;
+
+      activeSalesList.forEach(st => {
+        // Group Header theo Phòng ban
+        if (currentDept !== st.department) {
+          currentDept = st.department;
+          tbody.innerHTML += `
+            <tr class="dept-header">
+              <td colspan="6" class="text-danger fw-bold text-uppercase" style="font-size: 12px; padding: 12px 16px;">
+                <i class="ti ti-building-skyscraper me-1"></i> KHỐI/PHÒNG: <b>${currentDept}</b>
+              </td>
+            </tr>
+          `;
+        }
+
+        // Tính tỷ lệ chuyển đổi
+        const convertRate = st.total > 0 ? Math.round((st.potential / st.total) * 100) : 0;
+        let rateColor = convertRate > 15 ? 'text-success' : (convertRate > 5 ? 'text-warning' : 'text-danger');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="ps-4 fw-medium text-dark">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
+          <td class="text-center fw-bold fs-3 text-dark">${st.total}</td>
+          <td class="text-center fw-bold">${st.potential > 0 ? `<span class="badge bg-green-lt border border-success px-2 py-1">${st.potential}</span>` : '<span class="text-muted">0</span>'}</td>
+          <td class="text-center fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '<span class="text-muted">0</span>'}</td>
+          <td class="text-center fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1 shadow-sm">${st.pending}</span>` : '<span class="text-muted">0</span>'}</td>
+          <td class="text-center fw-bold ${rateColor}">${convertRate}%</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('repActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang hoạt động: <strong class="text-dark">${activeSalesCount} nhân sự</strong>`;
   }
 
-  async function triggerQuickSearch() {
-    const rawInput = document.getElementById('searchPhoneInput').value;
+  // ==========================================
+  // 3. TÌM KIẾM NHANH (SỬ DỤNG RPC)
+  // ==========================================
+  async function triggerReportQuickSearch() {
+    const rawInput = document.getElementById('repSearchPhone').value;
     const cleanInput = rawInput.replace(/\s+/g, ''); 
-    const resContainer = document.getElementById('quickSearchResults');
+    const resContainer = document.getElementById('repSearchResults');
     if (cleanInput.length < 4) { Swal.fire({ icon: 'warning', title: 'Lưu ý', text: 'Nhập tối thiểu 4 số!', confirmButtonColor: '#146654' }); return; }
 
-    resContainer.style.display = 'block'; resContainer.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary"></span> Đang quét...</div>';
+    resContainer.style.display = 'block'; 
+    resContainer.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2 text-primary"></span> Đang quét hệ thống...</div>';
+    
     try {
       const { data, error } = await window.sbClient.rpc('search_marketing_phone', { search_term: cleanInput });
       if (error) throw error;
-      if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0">Không tìm thấy dữ liệu.</div>'; return; }
+      if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0"><i class="ti ti-info-circle me-1"></i> Không tìm thấy dữ liệu.</div>'; return; }
 
-      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>`;
+      let html = `<table class="table table-vcenter table-hover table-sm m-0 border"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-muted">Tên Khách Hàng</th><th class="text-muted">Số Điện Thoại</th><th class="text-muted">Dự Án</th></tr></thead><tbody>`;
       data.forEach(item => {
         html += `
           <tr class="search-result-row">
             <td class="ps-3 fw-bold text-dark">${item.customer_name || 'Chưa có tên'}</td>
-            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
-            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
-            <td class="text-center">
-              <div class="d-flex justify-content-center gap-1">
-                <a href="tel:${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
-                <a href="https://zalo.me/${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
-              </div>
-            </td>
+            <td class="fw-bold" style="color: #146654;">${item.phone}</td>
+            <td><span class="badge bg-secondary-lt fw-medium px-2">${item.project_name || 'Không rõ'}</span></td>
           </tr>`;
       });
-      resContainer.innerHTML = html + '</tbody></table></div>';
+      resContainer.innerHTML = html + '</tbody></table>';
     } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
   }
 
-  async function drawNewLeads() {
-    const btn = document.getElementById('btnGetLeads');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
+  // ==========================================
+  // 4. IMPORT DATA LÊN DB
+  // ==========================================
+  function handleReportImportData() {
+    const url = document.getElementById('repInputSheet').value.trim();
+    if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link tải CSV!', 'warning'); return; }
+    
+    const btn = document.getElementById('btnRepImport');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; 
     btn.disabled = true;
-
-    try {
-      const selectedProject = document.getElementById('selectLeadProject').value;
-      const role = window.currentUser.role;
-      const allowedProjects = window.currentUser.allowed_projects || [];
-      const myId = window.currentUser.id;
-
-      if (role === 'sales' && allowedProjects.length === 0) {
-        throw new Error("Tài khoản của bạn chưa được cấp quyền khai thác dự án nào.");
-      }
-
-      let query = window.sbClient.from('marketing_leads')
-        .select('id')
-        .eq('status', 'Chưa phát')
-        .not('rejected_by', 'cs', `{${myId}}`); 
-
-      if (selectedProject !== 'all') {
-        query = query.eq('project_name', selectedProject);
-      } else if (role !== 'system') {
-        query = query.in('project_name', allowedProjects);
-      }
-      
-      const { data: readyLeads, error: errFetch } = await query
-        .order('attempt_count', { ascending: true })
-        .order('created_at', { ascending: true })
-        .limit(10);
-      
-      if (errFetch) throw errFetch;
-      
-      if (!readyLeads || readyLeads.length === 0) {
-        Swal.fire({ icon: 'info', title: 'Kho cạn!', text: 'Không còn data phù hợp hoặc bạn đã lọc qua hết các số tồn đọng.', confirmButtonColor: '#146654' });
-        btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; return;
-      }
-
-      const leadIds = readyLeads.map(l => l.id);
-      const vnTime = new Date().toISOString();
-
-      const { error: errUpdate } = await window.sbClient.from('marketing_leads')
-        .update({ status: 'Đã phát', assigned_to: myId, assigned_at: vnTime, quick_report: null })
-        .in('id', leadIds);
-        
-      if (errUpdate) throw errUpdate;
-
-      Swal.fire({ icon: 'success', title: 'Thành công', text: `Nhận ${leadIds.length} data mới.`, timer: 1500, showConfirmButton: false });
-      
-      await loadMyAssignedLeads();
-      await loadAvailableProjects(); 
-      if (window.currentUser.role === 'system') loadAdminDashboard();
-      
-    } catch (error) { 
-      Swal.fire('Lỗi', error.message, 'error'); 
-      btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; 
-    }
-  }
-
-  async function handleRejection(leadId) {
-    const { value: reason } = await Swal.fire({
-      title: 'Lý do bỏ qua data này?',
-      html: `
-        <div class="mb-3 text-start">
-          <label class="form-label text-muted fw-bold" style="font-size: 12px;">NHẬP LÝ DO HOẶC CHỌN GỢI Ý:</label>
-          <input id="swal-input-reason" class="form-control form-control-lg" placeholder="VD: Khách báo đã mua dự án khác..." autocomplete="off" style="border-radius: 8px;">
-        </div>
-        <div class="d-flex flex-wrap gap-2 justify-content-start">
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không nghe máy'">Không nghe máy</span>
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không có nhu cầu'">Không có nhu cầu</span>
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Sai số / Nhầm người'">Sai số / Nhầm người</span>
-          <span class="badge bg-danger-lt p-2 text-danger" style="cursor: pointer; border: 1px solid #fca5a5;" onclick="document.getElementById('swal-input-reason').value='Số Rác / Thuê bao'">Số Rác / Thuê bao</span>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: '<i class="ti ti-check me-1"></i> Xác nhận Bỏ qua',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#e11d48',
-      preConfirm: () => {
-        const val = document.getElementById('swal-input-reason').value.trim();
-        if (!val) { Swal.showValidationMessage('Vui lòng nhập lý do cụ thể hoặc nhấp chọn gợi ý!'); return false; }
-        return val;
-      }
-    });
-
-    if (reason) submitQuickReport(leadId, reason);
-  }
-
-  async function submitQuickReport(leadId, reportType) {
-    const card = document.getElementById(`lead-card-${leadId}`);
-    card.style.opacity = '0.5'; 
-    try {
-      const myId = window.currentUser.id;
-      const myName = window.currentUser.full_name;
-
-      const { error } = await window.sbClient.rpc('report_marketing_lead', {
-        p_lead_id: leadId,
-        p_sales_id: myId,
-        p_report: reportType
-      });
-
-      if (error) throw error;
-
-      if (reportType === 'Tiềm năng') {
-        const leadData = myPendingLeads.find(l => l.id === leadId);
-        
-        await switchPage('khachhang');
-        setTimeout(async () => {
-          if (typeof openCustomerModal === 'function') {
-            await openCustomerModal(); 
-            let fakeBtn = document.createElement('button'); fakeBtn.setAttribute('data-bs-toggle', 'modal'); fakeBtn.setAttribute('data-bs-target', '#modal-customer');
-            document.body.appendChild(fakeBtn); fakeBtn.click(); fakeBtn.remove();
-            
-            setTimeout(() => {
-              document.getElementById('cusName').value = leadData.customer_name || '';
-              document.getElementById('cusPhone').value = leadData.phone || '';
-              const sourceVal = leadData.source || 'Other';
-              const sourceSelect = document.getElementById('cusSource');
-              if (sourceSelect) {
-                if (!sourceSelect.querySelector(`option[value="${sourceVal}"]`)) {
-                  const opt = document.createElement('option'); opt.value = sourceVal; opt.text = sourceVal; sourceSelect.appendChild(opt);
-                }
-                sourceSelect.value = sourceVal; 
-              }
-              document.getElementById('cusStatus').value = 'potential'; 
-              
-              const assignInput = document.getElementById('cusAssigned');
-              if (assignInput) {
-                if (!assignInput.querySelector(`option[value="${myId}"]`)) {
-                  const opt = document.createElement('option'); opt.value = myId; opt.text = myName; assignInput.appendChild(opt); 
-                }
-                assignInput.value = myId; 
-              }
-              document.getElementById('cusNotes').focus();
-              document.getElementById('cusNotes').value = `[Từ Kho Data Marketing - Dự án: ${leadData.project_name || 'Không rõ'}]\n`;
-            }, 400); 
-          }
-        }, 300);
-      }
-
-      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: `Đã báo cáo: ${reportType}`, showConfirmButton: false, timer: 3000 });
-
-      myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
-      await loadMyAssignedLeads();
-      if (window.currentUser.role === 'system') { loadAdminDashboard(); loadAdminSalesStats(); }
-    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
-  }
-
-  function handleImportData() {
-    const url = document.getElementById('inputSheetUrl').value.trim();
-    if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
-    const btn = document.getElementById('btnImportData');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
 
     Papa.parse(url, {
       download: true, header: true, skipEmptyLines: true,
       complete: async function(results) {
         const rows = results.data;
-        if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
+        if(rows.length === 0) { Swal.fire('Lỗi', 'File rỗng hoặc sai cấu trúc Header!', 'error'); resetRepImportBtn(); return; }
         
         let payload = [];
-        let seenKeys = new Set(); 
+        let seenKeys = new Set();
 
         rows.forEach(row => {
           let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
@@ -683,17 +368,27 @@
         });
 
         if(payload.length > 0) {
-          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang nạp Database...';
           const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
           
-          if(error) { Swal.fire('Lỗi DB', error.message, 'error'); } 
-          else { Swal.fire('Thành Công', `Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).`, 'success'); document.getElementById('inputSheetUrl').value = ''; }
-        } else { Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning'); }
-        resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
+          if(error) Swal.fire('Lỗi Database', error.message, 'error');
+          else {
+            Swal.fire('Thành Công', `Đã bơm dữ liệu chuẩn hóa vào kho! Các số trùng lặp bị loại bỏ.`, 'success');
+            document.getElementById('repInputSheet').value = '';
+            await loadReportExactMetrics();
+          }
+        } else {
+          Swal.fire('Cảnh báo', 'Không tìm thấy SĐT hợp lệ nào!', 'warning');
+        }
+        resetRepImportBtn();
       },
-      error: function(err) { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
+      error: function(err) { Swal.fire('Lỗi mạng', 'Không thể đọc file CSV từ Link Google Sheet.', 'error'); resetRepImportBtn(); }
     });
   }
   
-  function resetImportBtn() { const btn = document.getElementById('btnImportData'); btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; btn.disabled = false; }
+  function resetRepImportBtn() { 
+    const btn = document.getElementById('btnRepImport'); 
+    btn.innerHTML = 'Import Data'; 
+    btn.disabled = false; 
+  }
 </script>
