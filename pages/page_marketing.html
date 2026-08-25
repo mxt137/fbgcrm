@@ -11,7 +11,7 @@
   <div class="container-xl">
     <div class="row g-2 align-items-center">
       <div class="col">
-        <h2 class="page-title" style="color: var(--tblr-primary); font-weight: 700;">
+        <h2 class="page-title" style="color: #146654; font-weight: 700;">
           <i class="ti ti-headset me-2"></i> Kho Data Marketing
         </h2>
         <div class="text-muted mt-1" style="font-size: 13px;">Phân phối data tự động và báo cáo hiệu suất Telesale</div>
@@ -143,9 +143,9 @@
         <div class="p-3 bg-white border-bottom" id="adminActiveSalesCount">
           <span class="spinner-border spinner-border-sm text-primary"></span> Đang tính toán...
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
           <table class="table table-vcenter card-table table-hover text-nowrap m-0">
-            <thead style="background: #f1f5f9;">
+            <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
               <tr>
                 <th class="ps-4">TÊN NHÂN VIÊN (SALES)</th>
                 <th class="text-center" title="Tổng số data đã rút khỏi kho">TỔNG ĐÃ NHẬN</th>
@@ -175,17 +175,15 @@
   async function loadMarketingModule() {
     const role = window.currentUser.role;
     
-    // UPDATE: Select thêm department để phục vụ báo cáo Sales nhóm theo phòng ban
+    // Select thêm department để phục vụ báo cáo Sales nhóm theo phòng ban
     const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role, department').eq('is_active', true);
     if(sData) globalSalesForMarketing = sData;
 
-    // HIỂN THỊ PANEL ADMIN (Admin & Manager & System)
     if (role === 'system' || role === 'admin' || role === 'manager') {
       document.getElementById('adminMarketingPanel').style.display = 'block';
       await loadAdminDashboard();
     }
 
-    // CÁC QUYỀN TÌM KIẾM VÀ IMPORT CHỈ DÀNH CHO SYSTEM
     if (role !== 'system') {
       const searchPanel = document.getElementById('quickSearchPanel');
       const importPanel = document.getElementById('importDataPanel');
@@ -266,19 +264,45 @@
     } catch (err) { console.error('Lỗi tải Dashboard:', err); }
   }
 
-  // 3.5 BÁO CÁO SALES CHI TIẾT (UPDATE: Sắp xếp phòng ban & chỉ hiện người bốc số)
+  // 3.5 BÁO CÁO SALES CHI TIẾT (ĐÃ FIX LỖI LIMIT 1000 ROW VÀ BUG SỐ TIỀM NĂNG = 0)
   async function loadAdminSalesStats() {
     const tbody = document.getElementById('adminSalesStatsBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang tổng hợp dữ liệu...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang kết xuất dữ liệu diện rộng...</td></tr>';
     
-    const { data, error } = await window.sbClient.from('marketing_leads').select('assigned_to, status, quick_report, rejected_by').or('assigned_to.not.is.null,rejected_by.neq.{}');
-    
-    if (error) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>'; return; }
-    if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nào được phát.</td></tr>'; return; }
+    // Tải toàn bộ Data không giới hạn 1000 dòng bằng cơ chế Chunking
+    let allData = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    while(hasMore) {
+      const { data, error } = await window.sbClient.from('marketing_leads')
+        .select('assigned_to, status, quick_report, rejected_by')
+        .or('assigned_to.not.is.null,rejected_by.neq.{}')
+        .range(from, from + step - 1);
+        
+      if (error) { 
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Lỗi kết nối CSDL: ${error.message}</td></tr>`; 
+        return; 
+      }
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+        from += step;
+        if (data.length < step) hasMore = false;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    if(allData.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nào được khai thác.</td></tr>'; 
+        return; 
+    }
 
     let statsMap = {};
     
-    // Nạp sẵn danh sách Sales với thông tin phòng ban
+    // Nạp sẵn danh sách Sales với thông tin phòng ban (bỏ qua System)
     globalSalesForMarketing.forEach(sale => {
       if (sale.role !== 'system') {
         statsMap[sale.id] = { 
@@ -290,18 +314,28 @@
       }
     });
 
-    data.forEach(lead => {
+    // PHÂN TÍCH THEO LOGIC MỚI: DÒ THEO MẢNG LỊCH SỬ REJECTED_BY
+    allData.forEach(lead => {
+      // 1. Nếu số đang nợ, nằm ở assigned_to
       if(lead.assigned_to && statsMap[lead.assigned_to]) {
         statsMap[lead.assigned_to].total++;
-        if (lead.status === 'Đã phát' && !lead.quick_report) statsMap[lead.assigned_to].pending++;
-        if (lead.quick_report === 'Tiềm năng') statsMap[lead.assigned_to].potential++;
+        if (lead.status === 'Đã phát' && !lead.quick_report) {
+            statsMap[lead.assigned_to].pending++;
+        }
       }
       
+      // 2. Phân tích nhóm đã thao tác báo cáo (Bị đẩy vào mảng rejected_by bởi Trigger DB)
       if(lead.rejected_by && lead.rejected_by.length > 0) {
-        lead.rejected_by.forEach(rejectedId => {
-          if (statsMap[rejectedId]) {
-            statsMap[rejectedId].total++;
-            statsMap[rejectedId].rejected++;
+        lead.rejected_by.forEach((saleId, index) => {
+          if (statsMap[saleId]) {
+            statsMap[saleId].total++;
+            
+            // Xử lý bug: Người thao tác cuối cùng mới là người hưởng kết quả Tiềm năng
+            if (index === lead.rejected_by.length - 1 && lead.quick_report === 'Tiềm năng') {
+              statsMap[saleId].potential++;
+            } else {
+              statsMap[saleId].rejected++;
+            }
           }
         });
       }
@@ -309,10 +343,10 @@
 
     tbody.innerHTML = '';
     
-    // UPDATE: Chỉ lấy nhân sự CÓ bốc số (total > 0)
+    // Lọc những Sales có tham gia bốc số
     let activeSalesList = Object.values(statsMap).filter(st => st.total > 0);
     
-    // UPDATE: Sắp xếp nhân sự theo Phòng Ban (A-Z)
+    // Sắp xếp tự động theo Tên Phòng Ban (A-Z)
     activeSalesList.sort((a, b) => {
       if (a.department === 'Chưa phân phòng') return 1; 
       if (b.department === 'Chưa phân phòng') return -1;
@@ -327,7 +361,7 @@
       let currentDept = null;
 
       activeSalesList.forEach(st => {
-        // Tạo dòng tách biệt cho từng phòng ban
+        // Gom nhóm Group Header theo Phòng ban
         if (currentDept !== st.department) {
           currentDept = st.department;
           tbody.innerHTML += `
@@ -343,15 +377,15 @@
         tr.innerHTML = `
           <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
           <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-          <td class="text-center text-primary fw-bold">${st.potential > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential}</span>` : '0'}</td>
-          <td class="text-center text-danger fw-bold">${st.rejected > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected}</span>` : '0'}</td>
-          <td class="text-center text-warning fw-bold">${st.pending > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending}</span>` : '0'}</td>
+          <td class="text-center text-primary fw-bold">${st.potential > 0 ? \`<span class="badge bg-blue-lt px-2 py-1">\${st.potential}</span>\` : '0'}</td>
+          <td class="text-center text-danger fw-bold">${st.rejected > 0 ? \`<span class="badge bg-red-lt px-2 py-1">\${st.rejected}</span>\` : '0'}</td>
+          <td class="text-center text-warning fw-bold">${st.pending > 0 ? \`<span class="badge bg-warning text-white px-2 py-1">\${st.pending}</span>\` : '0'}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>${activeSalesCount} nhân sự</strong> tham gia khai thác data.`;
+    document.getElementById('adminActiveSalesCount').innerHTML = \`<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>\${activeSalesCount} nhân sự</strong> tham gia khai thác data.\`;
   }
 
   // 4. DANH SÁCH ĐANG NỢ CỦA SALES
@@ -379,7 +413,7 @@
 
     container.innerHTML = '';
     if (myPendingLeads.length === 0) {
-      container.innerHTML = `<div class="col-12 text-center py-5"><i class="ti ti-database-off text-muted" style="font-size: 80px; opacity: 0.2;"></i><div class="text-muted fs-3 mt-3">Bạn đã xử lý hết Data. Hãy chọn Dự án và bốc số tiếp nhé!</div></div>`; return;
+      container.innerHTML = \`<div class="col-12 text-center py-5"><i class="ti ti-database-off text-muted" style="font-size: 80px; opacity: 0.2;"></i><div class="text-muted fs-3 mt-3">Bạn đã xử lý hết Data. Hãy chọn Dự án và bốc số tiếp nhé!</div></div>\`; return;
     }
 
     myPendingLeads.forEach((lead, index) => {
@@ -388,39 +422,39 @@
       
       let historyHtml = '';
       if (lead.report_history && lead.report_history.length > 0) {
-          historyHtml = `<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">${lead.report_history.join(' ➔ ')}</span></div>`;
+          historyHtml = \`<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">\${lead.report_history.join(' ➔ ')}</span></div>\`;
       }
 
-      col.innerHTML = `
-        <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
+      col.innerHTML = \`
+        <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-\${lead.id}">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp: ${(lead.attempt_count || 0) + 1}/3</span>
-            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
+            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #\${index + 1} | Vòng lặp: \${(lead.attempt_count || 0) + 1}/3</span>
+            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc \${assignedTime}</span>
           </div>
-          <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${lead.customer_name || 'Khách hàng'}</h4>
+          <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">\${lead.customer_name || 'Khách hàng'}</h4>
           
           <div class="d-flex align-items-center gap-2 mb-2">
-            <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>${lead.phone}</div>
-            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
-            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
+            <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>\${lead.phone}</div>
+            <a href="tel:\${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
+            <a href="https://zalo.me/\${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
           </div>
 
           <div class="text-muted mb-4" style="font-size: 13px;">
-            <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${lead.project_name || 'Không rõ'}</span></div>
-            ${lead.notes ? `<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : ''}
-            ${historyHtml}
+            <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">\${lead.project_name || 'Không rõ'}</span></div>
+            \${lead.notes ? \`<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">\${lead.notes}</span></div>\` : ''}
+            \${historyHtml}
           </div>
           
           <div class="mt-auto d-flex gap-2">
-            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
+            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('\${lead.id}')">
               <i class="ti ti-phone-off fs-3"></i> BỎ QUA
             </button>
-            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
+            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('\${lead.id}', 'Tiềm năng')">
               <i class="ti ti-star fs-3"></i> TIỀM NĂNG
             </button>
           </div>
         </div>
-      `;
+      \`;
       container.appendChild(col);
     });
   }
@@ -428,7 +462,7 @@
   // 5. TÌM KIẾM NHANH BẰNG RPC
   async function triggerQuickSearch() {
     const rawInput = document.getElementById('searchPhoneInput').value;
-    const cleanInput = rawInput.replace(/\s+/g, ''); 
+    const cleanInput = rawInput.replace(/\\s+/g, ''); 
     const resContainer = document.getElementById('quickSearchResults');
     if (cleanInput.length < 4) { Swal.fire({ icon: 'warning', title: 'Lưu ý', text: 'Nhập tối thiểu 4 số!', confirmButtonColor: '#146654' }); return; }
 
@@ -438,23 +472,23 @@
       if (error) throw error;
       if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0">Không tìm thấy dữ liệu.</div>'; return; }
 
-      let html = `<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>`;
+      let html = \`<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>\`;
       data.forEach(item => {
-        html += `
+        html += \`
           <tr class="search-result-row">
-            <td class="ps-3 fw-bold text-dark">${item.customer_name || 'Chưa có tên'}</td>
-            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
-            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
+            <td class="ps-3 fw-bold text-dark">\${item.customer_name || 'Chưa có tên'}</td>
+            <td class="fw-bold" style="color: #146654; font-size: 15px;">\${item.phone}</td>
+            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">\${item.project_name || 'Không rõ'}</span></td>
             <td class="text-center">
               <div class="d-flex justify-content-center gap-1">
-                <a href="tel:${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
-                <a href="https://zalo.me/${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
+                <a href="tel:\${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
+                <a href="https://zalo.me/\${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
               </div>
             </td>
-          </tr>`;
+          </tr>\`;
       });
       resContainer.innerHTML = html + '</tbody></table></div>';
-    } catch (err) { resContainer.innerHTML = `<div class="alert alert-danger mb-0">Lỗi: ${err.message}</div>`; }
+    } catch (err) { resContainer.innerHTML = \`<div class="alert alert-danger mb-0">Lỗi: \${err.message}</div>\`; }
   }
 
   // 6. BỐC SỐ TỰ ĐỘNG
@@ -476,7 +510,7 @@
       let query = window.sbClient.from('marketing_leads')
         .select('id')
         .eq('status', 'Chưa phát')
-        .not('rejected_by', 'cs', `{${myId}}`); 
+        .not('rejected_by', 'cs', \`{\${myId}}\`); 
 
       if (selectedProject !== 'all') {
         query = query.eq('project_name', selectedProject);
@@ -505,7 +539,7 @@
         
       if (errUpdate) throw errUpdate;
 
-      Swal.fire({ icon: 'success', title: 'Thành công', text: `Nhận ${leadIds.length} data mới.`, timer: 1500, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: 'Thành công', text: \`Nhận \${leadIds.length} data mới.\`, timer: 1500, showConfirmButton: false });
       
       await loadMyAssignedLeads();
       await loadAvailableProjects(); 
@@ -521,7 +555,7 @@
   async function handleRejection(leadId) {
     const { value: reason } = await Swal.fire({
       title: 'Lý do bỏ qua data này?',
-      html: `
+      html: \`
         <div class="mb-3 text-start">
           <label class="form-label text-muted fw-bold" style="font-size: 12px;">NHẬP LÝ DO HOẶC CHỌN GỢI Ý:</label>
           <input id="swal-input-reason" class="form-control form-control-lg" placeholder="VD: Khách báo đã mua dự án khác..." autocomplete="off" style="border-radius: 8px;">
@@ -532,7 +566,7 @@
           <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Sai số / Nhầm người'">Sai số / Nhầm người</span>
           <span class="badge bg-danger-lt p-2 text-danger" style="cursor: pointer; border: 1px solid #fca5a5;" onclick="document.getElementById('swal-input-reason').value='Số Rác / Thuê bao'">Số Rác / Thuê bao</span>
         </div>
-      `,
+      \`,
       showCancelButton: true,
       confirmButtonText: '<i class="ti ti-check me-1"></i> Xác nhận Bỏ qua',
       cancelButtonText: 'Hủy',
@@ -554,7 +588,7 @@
 
   // 8. GHI NHẬN BÁO CÁO QUA RPC DATABASE
   async function submitQuickReport(leadId, reportType) {
-    const card = document.getElementById(`lead-card-${leadId}`);
+    const card = document.getElementById(\`lead-card-\${leadId}\`);
     card.style.opacity = '0.5'; 
     try {
       const myId = window.currentUser.id;
@@ -595,10 +629,10 @@
               document.getElementById('cusPhone').value = leadData.phone || '';
               
               // Map Source thông minh từ Marketing vào Cột Nguồn của Khách hàng
-              const sourceVal = leadData.source || 'Other';
+              const sourceVal = leadData.source || 'Khác';
               const sourceSelect = document.getElementById('cusSource');
               if (sourceSelect) {
-                if (!sourceSelect.querySelector(`option[value="${sourceVal}"]`)) {
+                if (!sourceSelect.querySelector(\`option[value="\${sourceVal}"]\`)) {
                   const opt = document.createElement('option');
                   opt.value = sourceVal; opt.text = sourceVal;
                   sourceSelect.appendChild(opt);
@@ -612,7 +646,7 @@
               // Luôn gắn đúng Tên + ID của người đang thao tác
               const assignInput = document.getElementById('cusAssigned');
               if (assignInput) {
-                if (!assignInput.querySelector(`option[value="${myId}"]`)) {
+                if (!assignInput.querySelector(\`option[value="\${myId}"]\`)) {
                   const opt = document.createElement('option'); 
                   opt.value = myId; opt.text = myName; 
                   assignInput.appendChild(opt); 
@@ -621,13 +655,13 @@
               }
               
               document.getElementById('cusNotes').focus();
-              document.getElementById('cusNotes').value = `[Từ Kho Data Marketing - Dự án: ${leadData.project_name || 'Không rõ'}]\n`;
+              document.getElementById('cusNotes').value = \`[Từ Kho Data Marketing - Dự án: \${leadData.project_name || 'Không rõ'}]\\n\`;
             }, 400); 
           }
         }, 300);
       }
 
-      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: `Đã báo cáo: ${reportType}`, showConfirmButton: false, timer: 3000 });
+      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: \`Đã báo cáo: \${reportType}\`, showConfirmButton: false, timer: 3000 });
 
       // Refresh data mượt mà
       myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
@@ -657,7 +691,7 @@
 
         rows.forEach(row => {
           // 1. Tiền xử lý SĐT: Xóa mọi ký tự không phải là số (dấu +, chữ, khoảng trắng)
-          let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
+          let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\\D/g, '');
           
           if(rawPhone.length >= 9) {
             // Lấy đúng 9 số cuối và gắn thêm số 0
@@ -689,7 +723,7 @@
           if(error) {
             Swal.fire('Lỗi DB', error.message, 'error');
           } else {
-            Swal.fire('Thành Công', `Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).`, 'success');
+            Swal.fire('Thành Công', \`Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).\`, 'success');
             document.getElementById('inputSheetUrl').value = '';
           }
         } else {
