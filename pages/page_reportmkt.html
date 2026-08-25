@@ -1,127 +1,139 @@
 <style>
   .filter-bar { background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--tblr-border-color); }
-  .metric-card { border: none; border-radius: 12px; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #fff; height: 100%; }
-  .metric-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .metric-card { border: none; border-radius: 12px; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #fff; height: 100%; position: relative; overflow: hidden;}
+  .metric-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20, 102, 84, 0.1); }
+  .stat-icon { position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.15; transform: rotate(-15deg); }
   .journey-badge { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; background: #f8fafc; margin-right: 4px; margin-bottom: 4px; }
   .journey-arrow { color: #94a3b8; font-size: 12px; margin-right: 4px; }
 </style>
 
-<div class="page-header d-print-none mt-4">
-  <div class="container-xl">
-    <div class="row g-2 align-items-center">
-      <div class="col">
-        <h2 class="page-title text-danger" style="font-weight: 700;">
-          <i class="ti ti-radar me-2"></i> Giám Sát Chi Tiết Kho Marketing
-        </h2>
-        <div class="text-muted mt-1" style="font-size: 13px;">Đặc quyền System: Theo dõi hành trình xử lý Data, phản hồi và phát hiện "nhả số"</div>
+<!-- MÀN HÌNH KHÓA (CHỈ CHO SYSTEM) -->
+<div id="reportAccessDenied" style="display: none;" class="container-xl py-5 text-center mt-5">
+  <i class="ti ti-shield-lock text-danger mb-3" style="font-size: 80px; opacity: 0.6;"></i>
+  <h2 class="fw-bold text-dark fs-1">Khu Vực Tuyệt Mật</h2>
+  <p class="text-muted fs-3">Chỉ tài khoản Quản trị cấp cao (SYSTEM) mới được quyền truy cập và giám sát dữ liệu này.</p>
+</div>
+
+<!-- NỘI DUNG CHÍNH CỦA TRANG -->
+<div id="reportContent" style="display: none;">
+  <div class="page-header d-print-none mt-4">
+    <div class="container-xl">
+      <div class="row g-2 align-items-center">
+        <div class="col">
+          <h2 class="page-title text-danger" style="font-weight: 700;">
+            <i class="ti ti-radar me-2"></i> Giám Sát Chi Tiết Kho Marketing
+          </h2>
+          <div class="text-muted mt-1" style="font-size: 13px;">Đặc quyền System: Theo dõi hành trình xử lý Data, phản hồi và phát hiện "nhả số"</div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="page-body">
-  <div class="container-xl">
-    
-    <!-- 1. THỐNG KÊ TỔNG QUAN -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-2 col-sm-4">
-        <div class="card metric-card" style="background: linear-gradient(135deg, #146654, #0f4c3f); color: white;">
-          <div class="card-body p-3 text-center d-flex flex-column justify-content-center">
-            <div class="opacity-75 fw-bold mb-1" style="font-size: 11px;">TỔNG TRONG KHO</div>
-            <div class="fs-1 fw-bold" id="repMktTotal">0</div>
+  <div class="page-body">
+    <div class="container-xl">
+      
+      <!-- 1. THỐNG KÊ TỔNG QUAN (ĐÃ FIX LỖI LIMIT 1000 ROWS) -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-2 col-sm-4">
+          <div class="card metric-card" style="background: linear-gradient(135deg, #146654, #0f4c3f); color: white;">
+            <div class="card-body p-3 text-center d-flex flex-column justify-content-center">
+              <div class="opacity-75 fw-bold mb-1" style="font-size: 11px;">TỔNG TRONG KHO</div>
+              <div class="fs-1 fw-bold" id="repMktTotal"><span class="spinner-border spinner-border-sm"></span></div>
+              <i class="ti ti-database stat-icon text-white"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+          <div class="card metric-card text-center border-start border-3 border-primary">
+            <div class="card-body p-3">
+              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">ĐÃ BỐC</div>
+              <div class="fs-2 fw-bold text-primary" id="repMktDrawn"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-4">
+          <div class="card metric-card text-center border-start border-3 border-success">
+            <div class="card-body p-3">
+              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">CHUYỂN TIỀM NĂNG</div>
+              <div class="fs-2 fw-bold text-success" id="repMktPotential"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+          <div class="card metric-card text-center border-start border-3 border-danger">
+            <div class="card-body p-3">
+              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">BỊ LOẠI BỎ (RÁC)</div>
+              <div class="fs-2 fw-bold text-danger" id="repMktRejected"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="card metric-card text-center border-start border-3 border-warning">
+            <div class="card-body p-3">
+              <div class="text-muted fw-bold mb-1" style="font-size: 11px;">ĐANG NỢ (CHƯA XỬ LÝ)</div>
+              <div class="fs-2 fw-bold text-warning" id="repMktPending"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card metric-card text-center border-start border-3 border-primary">
-          <div class="card-body p-3">
-            <div class="text-muted fw-bold mb-1" style="font-size: 11px;">ĐÃ BỐC</div>
-            <div class="fs-2 fw-bold text-primary" id="repMktDrawn">0</div>
+
+      <!-- 2. THANH LỌC DỮ LIỆU -->
+      <div class="filter-bar row g-3 align-items-center">
+        <div class="col-md-4">
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
+            <input type="text" id="repSearchInput" class="form-control fw-medium" placeholder="Tìm SĐT hoặc Tên khách..." onkeyup="applyReportFilter()">
           </div>
         </div>
-      </div>
-      <div class="col-md-3 col-sm-4">
-        <div class="card metric-card text-center border-start border-3 border-success">
-          <div class="card-body p-3">
-            <div class="text-muted fw-bold mb-1" style="font-size: 11px;">CHUYỂN TIỀM NĂNG</div>
-            <div class="fs-2 fw-bold text-success" id="repMktPotential">0</div>
+        <div class="col-md-3">
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-user-scan text-muted"></i></span>
+            <select id="repSalesFilter" class="form-select fw-medium" onchange="applyReportFilter()">
+              <option value="all">Tất cả Sales tham gia bốc số</option>
+            </select>
           </div>
         </div>
-      </div>
-      <div class="col-md-2 col-sm-6">
-        <div class="card metric-card text-center border-start border-3 border-danger">
-          <div class="card-body p-3">
-            <div class="text-muted fw-bold mb-1" style="font-size: 11px;">BỊ LOẠI BỎ (RÁC)</div>
-            <div class="fs-2 fw-bold text-danger" id="repMktRejected">0</div>
+        <div class="col-md-3">
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-filter text-muted"></i></span>
+            <select id="repStatusFilter" class="form-select fw-medium" onchange="applyReportFilter()">
+              <option value="all">Mọi trạng thái báo cáo</option>
+              <option value="Tiềm năng">Chuyển Tiềm năng</option>
+              <option value="Bỏ qua">Bị Bỏ qua / Rác</option>
+              <option value="Đang nợ">Đang nợ số (Pending)</option>
+            </select>
           </div>
         </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card metric-card text-center border-start border-3 border-warning">
-          <div class="card-body p-3">
-            <div class="text-muted fw-bold mb-1" style="font-size: 11px;">ĐANG NỢ (CHƯA XỬ LÝ)</div>
-            <div class="fs-2 fw-bold text-warning" id="repMktPending">0</div>
-          </div>
+        <div class="col-md-2">
+          <button class="btn w-100 d-flex align-items-center justify-content-center btn-brand text-white" onclick="resetReportFilter()">
+            <i class="ti ti-refresh me-2"></i> Làm mới
+          </button>
         </div>
       </div>
+
+      <!-- 3. BẢNG CHI TIẾT HÀNH TRÌNH -->
+      <div class="card" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table table-hover text-nowrap m-0">
+            <thead style="background: #f1f5f9;">
+              <tr>
+                <th class="w-1 text-center">STT</th>
+                <th>DATA KHÁCH HÀNG</th>
+                <th>THÔNG TIN NGUỒN</th>
+                <th style="min-width: 300px;">HÀNH TRÌNH & NỘI DUNG PHẢN HỒI</th>
+                <th class="text-center">TRẠNG THÁI CUỐI</th>
+                <th>CẬP NHẬT LÚC</th>
+              </tr>
+            </thead>
+            <tbody id="repTableBody">
+              <tr><td colspan="6" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang truy xuất hệ thống...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="repPaginationControls" class="card-footer d-flex align-items-center bg-white border-top-0" style="padding: 16px;"></div>
+      </div>
+
     </div>
-
-    <!-- 2. THANH LỌC DỮ LIỆU -->
-    <div class="filter-bar row g-3 align-items-center">
-      <div class="col-md-4">
-        <div class="input-icon">
-          <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
-          <input type="text" id="repSearchInput" class="form-control fw-medium" placeholder="Tìm SĐT hoặc Tên khách..." onkeyup="applyReportFilter()">
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="input-icon">
-          <span class="input-icon-addon"><i class="ti ti-user-scan text-muted"></i></span>
-          <select id="repSalesFilter" class="form-select fw-medium" onchange="applyReportFilter()">
-            <option value="all">Tất cả Sales tham gia bốc số</option>
-          </select>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="input-icon">
-          <span class="input-icon-addon"><i class="ti ti-filter text-muted"></i></span>
-          <select id="repStatusFilter" class="form-select fw-medium" onchange="applyReportFilter()">
-            <option value="all">Mọi trạng thái báo cáo</option>
-            <option value="Tiềm năng">Chuyển Tiềm năng</option>
-            <option value="Bỏ qua">Bị Bỏ qua / Rác</option>
-            <option value="Đang nợ">Đang nợ số (Pending)</option>
-          </select>
-        </div>
-      </div>
-      <div class="col-md-2">
-        <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center btn-brand text-white" onclick="resetReportFilter()">
-          <i class="ti ti-refresh me-2"></i> Làm mới
-        </button>
-      </div>
-    </div>
-
-    <!-- 3. BẢNG CHI TIẾT HÀNH TRÌNH -->
-    <div class="card" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
-      <div class="table-responsive">
-        <table class="table table-vcenter card-table table-hover text-nowrap m-0">
-          <thead style="background: #f1f5f9;">
-            <tr>
-              <th class="w-1 text-center">STT</th>
-              <th>DATA KHÁCH HÀNG</th>
-              <th>THÔNG TIN NGUỒN</th>
-              <th style="min-width: 300px;">HÀNH TRÌNH & NỘI DUNG PHẢN HỒI</th>
-              <th class="text-center">TRẠNG THÁI CUỐI</th>
-              <th>CẬP NHẬT LÚC</th>
-            </tr>
-          </thead>
-          <tbody id="repTableBody">
-            <tr><td colspan="6" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang truy xuất hệ thống...</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div id="repPaginationControls" class="card-footer d-flex align-items-center bg-white border-top-0" style="padding: 16px;"></div>
-    </div>
-
   </div>
 </div>
 
@@ -132,15 +144,27 @@
   let repTotalItems = 0;
   let repSearchTimeout = null;
 
+  // ==========================================
+  // KHỞI TẠO MODULE (BẢO MẬT ROLE = SYSTEM)
+  // ==========================================
   async function loadReportMktModule() {
+    // Kích hoạt giao diện tùy theo quyền
     if (!window.currentUser || window.currentUser.role !== 'system') {
-      document.querySelector('.page-body').innerHTML = '<div class="container-xl"><div class="alert alert-danger">Bạn không có quyền truy cập trang này!</div></div>';
+      document.getElementById('reportContent').style.display = 'none';
+      document.getElementById('reportAccessDenied').style.display = 'block';
       return;
     }
+    
+    document.getElementById('reportAccessDenied').style.display = 'none';
+    document.getElementById('reportContent').style.display = 'block';
 
     await fetchRepSalesList();
-    await fetchRepMktStats();
-    await fetchRepMktData();
+    
+    // Tải dữ liệu song song để tăng tốc độ render
+    Promise.all([
+      fetchRepMktStats(),
+      fetchRepMktData()
+    ]);
   }
 
   // 1. Tải danh sách Sales
@@ -156,28 +180,25 @@
     }
   }
 
-  // 2. Thống kê nhanh
+  // ==========================================
+  // 2. TẢI 5 CHỈ SỐ TỔNG QUAN (COUNT EXACT - Vượt qua 1000 limit)
+  // ==========================================
   async function fetchRepMktStats() {
     try {
-      const { data } = await window.sbClient.from('marketing_leads').select('status, quick_report, rejected_by');
-      if(data) {
-        let total = data.length;
-        let potential = 0, pending = 0, rejected = 0, drawn = 0;
-        data.forEach(l => {
-          let hasBeenDrawn = false;
-          if (l.status === 'Đã phát' && !l.quick_report) { pending++; hasBeenDrawn = true; }
-          if (l.quick_report === 'Tiềm năng') { potential++; hasBeenDrawn = true; }
-          if (l.status === 'Rác' || (l.rejected_by && l.rejected_by.length > 0)) { rejected++; hasBeenDrawn = true; }
-          
-          if(hasBeenDrawn || l.status !== 'Chưa phát') drawn++;
-        });
-        document.getElementById('repMktTotal').innerText = new Intl.NumberFormat().format(total);
-        document.getElementById('repMktDrawn').innerText = new Intl.NumberFormat().format(drawn);
-        document.getElementById('repMktPotential').innerText = new Intl.NumberFormat().format(potential);
-        document.getElementById('repMktRejected').innerText = new Intl.NumberFormat().format(rejected);
-        document.getElementById('repMktPending').innerText = new Intl.NumberFormat().format(pending);
-      }
-    } catch (e) { console.error(e); }
+      Promise.all([
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }),
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('attempt_count.gt.0,status.neq.Chưa phát'), // Đã bốc
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null), // Đang nợ
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng'), // Chuyển tiềm năng
+        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('status.eq.Rác,rejected_by.neq.{}') // Bị loại bỏ
+      ]).then(([resTotal, resDrawn, resPending, resPotential, resRejected]) => {
+        document.getElementById('repMktTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
+        document.getElementById('repMktDrawn').innerText = new Intl.NumberFormat().format(resDrawn.count || 0);
+        document.getElementById('repMktPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
+        document.getElementById('repMktPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
+        document.getElementById('repMktRejected').innerText = new Intl.NumberFormat().format(resRejected.count || 0);
+      });
+    } catch (err) { console.error('Lỗi tải Metrics:', err); }
   }
 
   // 3. Tải Data Bảng
@@ -200,7 +221,7 @@
     if (statusFilter === 'Tiềm năng') query = query.eq('quick_report', 'Tiềm năng');
     else if (statusFilter === 'Đang nợ') query = query.eq('status', 'Đã phát').is('quick_report', null);
     else if (statusFilter === 'Bỏ qua') {
-      query = query.or('status.eq.Rác,quick_report.in.(Không nghe máy,Không nhu cầu,Rác/Spam)');
+      query = query.or('status.eq.Rác,quick_report.in.(Không nghe máy,Không có nhu cầu,Sai số / Nhầm người,Số Rác / Thuê bao)');
     }
 
     const salesId = document.getElementById('repSalesFilter').value;
@@ -208,7 +229,7 @@
       query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
     }
 
-    // UPDATE QUAN TRỌNG: Sắp xếp theo updated_at để đưa các tương tác mới nhất (báo cáo, bỏ qua, tiềm năng) lên đầu
+    // Sắp xếp theo updated_at để đưa các tương tác mới nhất lên đầu
     const { data, error, count } = await query
       .order('updated_at', { ascending: false, nullsFirst: false })
       .order('assigned_at', { ascending: false })
@@ -228,6 +249,7 @@
     data.forEach((lead, index) => {
       let journeyHtml = '';
       
+      // Xử lý huy hiệu những người đã từ chối
       if (lead.rejected_by && lead.rejected_by.length > 0) {
         lead.rejected_by.forEach(rId => {
           const sName = repSalesMap[rId] || 'Nhân sự cũ';
@@ -235,6 +257,7 @@
         });
       }
       
+      // Xử lý huy hiệu người đang phụ trách hiện tại
       if (lead.assigned_to) {
         const sName = repSalesMap[lead.assigned_to] || 'Nhân sự cũ';
         if (lead.quick_report === 'Tiềm năng') {
@@ -273,11 +296,11 @@
 
       let finalStatus = '';
       if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold px-2 py-1">WIN (Tiềm năng)</span>';
-      else if (lead.status === 'Rác') finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Rác)</span>';
+      else if (lead.status === 'Rác' || (lead.attempt_count >= 3)) finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Loại bỏ)</span>';
       else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold px-2 py-1">PENDING (Đang nợ)</span>';
       else finalStatus = `<span class="badge bg-secondary text-white fw-bold px-2 py-1">${lead.status || 'Chưa rõ'}</span>`;
 
-      // UPDATE QUAN TRỌNG: Ưu tiên lấy updated_at làm giờ báo cáo mới nhất
+      // Lấy thời gian cập nhật mới nhất
       const dateObj = new Date(lead.updated_at || lead.assigned_at || lead.created_at);
       const timeStr = `<span class="fw-bold" style="color: #146654;">${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}</span><br><span class="text-muted" style="font-size: 11px;">${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}</span>`;
 
