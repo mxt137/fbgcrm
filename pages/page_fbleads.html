@@ -85,10 +85,23 @@
                   <h4 class="card-title fw-bold m-0 text-dark" id="selectedTeamTitle">Thành viên nhóm</h4>
                 </div>
                 <div class="card-body bg-white" style="border-radius: 0 0 12px 12px;">
-                   <div class="d-flex gap-2 mb-4 p-3 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px solid rgba(20, 102, 84, 0.1);">
-                     <select id="selectFbMemberToAdd" class="form-select fw-medium border-0"></select>
-                     <button class="btn btn-success fw-bold shadow-sm" onclick="addMemberToFbTeam()"><i class="ti ti-user-plus me-2"></i>Thêm vào nhóm</button>
-                   </div>
+                  <!-- THAY THẾ KHU VỰC THÊM THÀNH VIÊN TRONG TAB 2 -->
+                  <div class="d-flex flex-column gap-3 mb-4 p-3 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px solid rgba(20, 102, 84, 0.1);">
+                     <!-- Ô Tìm kiếm nhanh -->
+                     <div class="input-icon w-100">
+                         <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
+                         <input type="text" id="searchMemberInput" class="form-control fw-medium bg-white" placeholder="Tìm kiếm nhanh tên nhân sự..." onkeyup="filterMemberSelect()">
+                     </div>
+                     
+                     <!-- Khu vực Select và Nút thêm -->
+                     <div class="d-flex gap-2">
+                       <select id="selectFbMemberToAdd" class="form-select fw-medium border-0 shadow-sm"></select>
+                       <button class="btn text-white fw-bold shadow-sm text-nowrap" style="background: #146654;" onclick="addMemberToFbTeam()">
+                          <i class="ti ti-user-plus me-2"></i>Thêm vào nhóm
+                       </button>
+                     </div>
+                  </div>
+                  <!-- END THAY THẾ KHU VỰC THÊM THÀNH VIÊN TRONG TAB 2 -->
                    <div class="table-responsive border rounded-3">
                      <table class="table table-vcenter table-hover m-0">
                        <thead style="background: #f8fafc;">
@@ -214,6 +227,7 @@
 // ============================================
 let fbMembersCache = [];
 let currentSelectedTeam = null;
+let currentAvailableMembers = []; // BIẾN MỚI: Chứa danh sách nhân sự có thể thêm vào nhóm hiện tại
 
 async function initFbLeadsModule() {
     const role = window.currentUser.role;
@@ -246,9 +260,9 @@ async function loadMyFbLeads() {
     const container = document.getElementById('myFbLeadsContainer');
     container.innerHTML = '<div class="col-12 text-center py-5"><span class="spinner-border text-primary me-2"></span> Đang đồng bộ Data...</div>';
     
-    // Chỉ tải Data gán cho User hiện tại, và trạng thái chưa phải là chốt hay rác hoàn toàn
+    // SỬ DỤNG JOIN: Lấy thêm name từ bảng fbleads_teams
     const { data, error } = await window.sbClient.from('fbleads_data')
-        .select('*')
+        .select('*, fbleads_teams(name)')
         .eq('assigned_to', window.currentUser.id)
         .order('assigned_at', { ascending: false });
         
@@ -268,8 +282,10 @@ async function loadMyFbLeads() {
     data.forEach((lead, index) => {
         let demandInfo = lead.demand ? `<div class="mb-2"><i class="ti ti-tag me-1 text-warning"></i> Nhu cầu: <span class="fw-bold text-dark">${lead.demand}</span></div>` : '';
         let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}">Đang tính toán...</span>`;
-        
         let cityInfo = lead.city ? ` | ${lead.city}` : '';
+        
+        // HIỂN THỊ TÊN DỰ ÁN / NHÓM
+        const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
         
         container.innerHTML += `
         <div class="col-md-6 col-lg-4">
@@ -277,6 +293,13 @@ async function loadMyFbLeads() {
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                     <span class="badge bg-danger text-white fw-bold px-2 py-1 shadow-sm"><i class="ti ti-flame me-1"></i>FB LEAD #${index+1}</span>
                     ${timerHtml}
+                </div>
+                
+                <!-- NHÃN DỰ ÁN GIÚP SALES PHÂN BIỆT -->
+                <div class="mb-3">
+                   <span class="badge" style="background: rgba(20, 102, 84, 0.1); color: #146654; font-size: 11px; padding: 6px 10px; border: 1px solid rgba(20, 102, 84, 0.2);">
+                      <i class="ti ti-building-skyscraper me-1"></i> ${teamName}
+                   </span>
                 </div>
                 
                 <h3 class="fw-bold mb-1 fs-3" style="color: #0f172a;"><i class="ti ti-user-circle me-1 text-muted"></i> ${lead.customer_name || 'Khách hàng Ads'}</h3>
@@ -303,7 +326,6 @@ async function loadMyFbLeads() {
         `;
     });
     
-    // Gọi hàm tính thời gian thực tế ngay lập tức
     updateCountdowns();
 }
 
@@ -440,19 +462,17 @@ async function selectFbTeam(id, name) {
     document.getElementById('teamMembersCard').style.display = 'block';
     document.getElementById('selectedTeamTitle').innerHTML = `<i class="ti ti-shield-check text-primary me-2"></i>Nhóm: <span class="text-danger">${name}</span>`;
     
-    // Nạp danh sách Select Thành viên
-    const selectAdd = document.getElementById('selectFbMemberToAdd');
-    selectAdd.innerHTML = '<option value="">-- Chọn Nhân sự (Sales) --</option>';
+    // Reset ô tìm kiếm
+    document.getElementById('searchMemberInput').value = '';
     
     const { data: teamMembers } = await window.sbClient.from('fbleads_team_members').select('*').eq('team_id', id);
     const tmIds = teamMembers ? teamMembers.map(tm => tm.member_id) : [];
     
-    fbMembersCache.forEach(m => {
-        // Lọc những người chưa có trong nhóm và không phải Role ẩn danh System
-        if (!tmIds.includes(m.id) && m.role !== 'system') {
-            selectAdd.innerHTML += `<option value="${m.id}">${m.full_name} - [${m.role.toUpperCase()}]</option>`;
-        }
-    });
+    // Lọc ra danh sách những người chưa có trong nhóm để nạp vào mảng tạm
+    currentAvailableMembers = fbMembersCache.filter(m => !tmIds.includes(m.id) && m.role !== 'system');
+    
+    // Gọi hàm render để vẽ thẻ select
+    renderMemberSelect(currentAvailableMembers);
     
     const tbody = document.getElementById('fbTeamMembersTable');
     tbody.innerHTML = '';
@@ -461,7 +481,6 @@ async function selectFbTeam(id, name) {
             const mInfo = fbMembersCache.find(x => x.id === tm.member_id);
             const nameStr = mInfo ? mInfo.full_name : 'Tài khoản đã xóa';
             
-            // Render datetime
             let lastReceived = '<span class="fst-italic text-muted">Chưa nhận số</span>';
             if (tm.last_received_at) {
                 const d = new Date(tm.last_received_at);
@@ -484,6 +503,33 @@ async function selectFbTeam(id, name) {
     } else {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nhóm chưa có thành viên nào. Hãy bổ sung nhân sự!</td></tr>';
     }
+}
+
+// HÀM MỚI 1: Vẽ lại danh sách Select Option
+function renderMemberSelect(membersToRender) {
+    const selectAdd = document.getElementById('selectFbMemberToAdd');
+    selectAdd.innerHTML = '<option value="">-- Chọn Nhân sự (Sales) --</option>';
+    membersToRender.forEach(m => {
+        selectAdd.innerHTML += `<option value="${m.id}">${m.full_name} - [${m.role.toUpperCase()}]</option>`;
+    });
+}
+
+// HÀM MỚI 2: Lọc danh sách khi gõ phím tìm kiếm
+function filterMemberSelect() {
+    const keyword = document.getElementById('searchMemberInput').value.toLowerCase().trim();
+    
+    // Nếu xóa rỗng ô tìm kiếm, hiển thị lại toàn bộ
+    if (!keyword) {
+        renderMemberSelect(currentAvailableMembers);
+        return;
+    }
+    
+    // Lọc những người có tên khớp với từ khóa
+    const filteredMembers = currentAvailableMembers.filter(m => 
+        m.full_name.toLowerCase().includes(keyword)
+    );
+    
+    renderMemberSelect(filteredMembers);
 }
 
 async function createFbTeam() {
