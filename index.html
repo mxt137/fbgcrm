@@ -68,6 +68,11 @@
                 <i class="ti ti-radar me-2 fs-2 nav-link-icon text-danger"></i> Chi tiết Kho MKT
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link nav-menu" id="nav-fbleads" onclick="switchPage('fbleads')" style="cursor: pointer;">
+                <i class="ti ti-brand-facebook me-2 fs-2 nav-link-icon text-primary"></i> Lead FB Ads
+              </a>
+            </li>
           </ul>
         </div>
       </div>
@@ -84,6 +89,7 @@
       <div id="module-khachhang" class="app-module" style="display: none;"></div>
       <div id="module-teamwork" class="app-module" style="display: none;"></div>
       <div id="module-reportmkt" class="app-module" style="display: none;"></div>
+      <div id="module-fbleads" class="app-module" style="display: none;"></div>
     </div>
   </div>
 
@@ -300,6 +306,7 @@
       if (pageId === 'khachhang' && typeof loadCustomers === 'function') loadSalesList().then(() => loadCustomers());
       if (pageId === 'teamwork' && typeof loadTeamWorkModule === 'function') loadTeamWorkModule();
       if (pageId === 'reportmkt' && typeof loadReportMktModule === 'function') loadReportMktModule();
+      if (pageId === 'fbleads' && typeof initFbLeadsModule === 'function') initFbLeadsModule();
     }
 
     // 6. KHỞI CHẠY HỆ THỐNG
