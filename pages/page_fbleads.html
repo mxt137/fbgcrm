@@ -435,17 +435,6 @@ async function loadFbTeams() {
     }
 }
 
-async function createFbTeam() {
-    const name = document.getElementById('newFbTeamName').value.trim();
-    if(!name) return;
-    
-    // Giao diện tĩnh - Gọi insert cơ bản
-    await window.sbClient.from('fbleads_teams').insert([{ name: name }]);
-    document.getElementById('newFbTeamName').value = '';
-    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Tạo nhóm thành công', showConfirmButton: false, timer: 1500});
-    loadFbTeams();
-}
-
 async function selectFbTeam(id, name) {
     currentSelectedTeam = id;
     document.getElementById('teamMembersCard').style.display = 'block';
@@ -497,6 +486,26 @@ async function selectFbTeam(id, name) {
     }
 }
 
+async function createFbTeam() {
+    const name = document.getElementById('newFbTeamName').value.trim();
+    if(!name) return;
+    
+    // Khóa nút và hiển thị loading
+    Swal.fire({ title: 'Đang khởi tạo nhóm...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    // Thực hiện Insert và BẮT LỖI (Bắt buộc)
+    const { error } = await window.sbClient.from('fbleads_teams').insert([{ name: name }]);
+    
+    if (error) {
+        Swal.fire('Lỗi Database', 'Không thể tạo nhóm: ' + error.message, 'error');
+        return;
+    }
+
+    document.getElementById('newFbTeamName').value = '';
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Tạo nhóm thành công', showConfirmButton: false, timer: 1500});
+    loadFbTeams();
+}
+
 async function addMemberToFbTeam() {
     const memberId = document.getElementById('selectFbMemberToAdd').value;
     if(!memberId || !currentSelectedTeam) {
@@ -504,16 +513,24 @@ async function addMemberToFbTeam() {
         return; 
     }
     
+    Swal.fire({ title: 'Đang nạp thành viên...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
     // Mặc định cho Vòng 0 và is_active = true
-    await window.sbClient.from('fbleads_team_members').insert([{ 
+    const { error } = await window.sbClient.from('fbleads_team_members').insert([{ 
         team_id: currentSelectedTeam, 
         member_id: memberId, 
         round_number: 0, 
         is_active: true 
     }]);
+
+    if (error) {
+        Swal.fire('Lỗi Database', 'Không thể thêm nhân sự: ' + error.message, 'error');
+        return;
+    }
     
     const currentName = document.getElementById('selectedTeamTitle').innerText.replace('Nhóm: ', '');
     selectFbTeam(currentSelectedTeam, currentName);
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Bổ sung thành viên thành công', showConfirmButton: false, timer: 1500});
 }
 
 async function removeFbTeamMember(memberId) {
@@ -527,9 +544,20 @@ async function removeFbTeamMember(memberId) {
         confirmButtonText: 'Đồng ý xóa'
     }).then(async (result) => {
         if (result.isConfirmed) {
-            await window.sbClient.from('fbleads_team_members').delete().match({ team_id: currentSelectedTeam, member_id: memberId });
+            Swal.fire({ title: 'Đang gỡ bỏ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
+            const { error } = await window.sbClient.from('fbleads_team_members')
+                .delete()
+                .match({ team_id: currentSelectedTeam, member_id: memberId });
+            
+            if (error) {
+                Swal.fire('Lỗi Database', 'Không thể xóa nhân sự: ' + error.message, 'error');
+                return;
+            }
+
             const currentName = document.getElementById('selectedTeamTitle').innerText.replace('Nhóm: ', '');
             selectFbTeam(currentSelectedTeam, currentName);
+            Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Đã gỡ thành viên', showConfirmButton: false, timer: 1500});
         }
     });
 }
