@@ -233,12 +233,16 @@ let globalFbSettings = null; // Lưu cấu hình hệ thống
 // HÀM KHỞI TẠO MODULE
 async function initFbLeadsModule() {
     const role = window.currentUser.role;
+    
+    // Tải cấu hình trước
     await loadFbSettings();
 
+    // Hiển thị giao diện theo quyền
     if (role === 'system' || role === 'admin') {
         document.getElementById('navTeamManagement').style.display = 'block';
         document.getElementById('navSystemMonitor').style.display = 'block';
         if (role === 'system') document.getElementById('systemSettingsPanel').style.display = 'block';
+        
         await loadFbTeams();
         loadAllFbLeads();
     }
@@ -247,25 +251,44 @@ async function initFbLeadsModule() {
     await loadMyFbLeads();
 
     // ==========================================
-    // TIẾN TRÌNH CHẠY NGẦM QUÉT DATA QUÁ HẠN
+    // TIẾN TRÌNH CHẠY NGẦM QUÉT DATA QUÁ HẠN (TỐI ƯU UI)
     // ==========================================
     setInterval(async () => {
+        // 1. Cập nhật nhãn đếm ngược liên tục trên giao diện
         updateCountdowns();
+        
         if (window.currentUser) {
             try {
-                // Gọi "Máy hút bụi" tước số
-                await window.sbClient.rpc('sweep_expired_fbleads');
-                
-                // MỞ KHÓA: Bất kể là System hay Sales, Tab nào đang mở thì làm mới Tab đó
-                const monitorTab = document.getElementById('tabs-monitor');
-                if (monitorTab && monitorTab.classList.contains('active')) loadAllFbLeads();
-                
-                const myLeadsTab = document.getElementById('tabs-myleads');
-                if (myLeadsTab && myLeadsTab.classList.contains('active')) loadMyFbLeads();
+                // 2. Kích hoạt "Máy hút bụi" trên Supabase
+                // Hàm này trả về số lượng bản ghi vừa bị thu hồi
+                const { data: revokedCount, error } = await window.sbClient.rpc('sweep_expired_fbleads');
+                if (error) throw error;
 
-            } catch (e) { console.error('Lỗi Background Worker:', e); }
+                // 3. NẾU CÓ DATA BỊ THU HỒI -> BẮT BUỘC LÀM MỚI GIAO DIỆN
+                if (revokedCount > 0) {
+                    // Nếu là Admin đang xem Tab Giám sát -> Cập nhật bảng
+                    const monitorTab = document.getElementById('tabs-monitor');
+                    if (monitorTab && monitorTab.classList.contains('active')) {
+                        loadAllFbLeads();
+                    }
+                    
+                    // Nếu là Sales đang xem Tab Cá nhân -> Cập nhật Card để thẻ quá hạn biến mất
+                    const myLeadsTab = document.getElementById('tabs-myleads');
+                    if (myLeadsTab && myLeadsTab.classList.contains('active')) {
+                        // Thêm hiệu ứng Toast nhẹ để Sales biết Data vừa bị tước
+                        Swal.fire({
+                            toast: true, position: 'bottom-end', icon: 'warning', 
+                            title: 'Hệ thống vừa thu hồi các Data quá hạn báo cáo!', 
+                            showConfirmButton: false, timer: 3000
+                        });
+                        loadMyFbLeads();
+                    }
+                }
+            } catch (e) {
+                console.error('Lỗi Background Worker (Auto-Revoke):', e);
+            }
         }
-    }, 60000); 
+    }, 60000); // Quét mỗi 60 giây
 }
   
 // ==========================================
@@ -560,6 +583,7 @@ async function loadMyFbLeads() {
 function updateCountdowns() {
     const timers = document.querySelectorAll('.fb-timer');
     const now = new Date().getTime();
+    
     timers.forEach(el => {
         const deadlineStr = el.getAttribute('data-deadline');
         if (!deadlineStr || deadlineStr === "null") {
@@ -571,14 +595,21 @@ function updateCountdowns() {
         const deadline = new Date(deadlineStr).getTime();
         const diff = deadline - now;
         
+        // Nếu đã lố giờ (Âm) HOẶC còn dưới 0 phút
         if (diff <= 0) {
-            el.innerHTML = '<i class="ti ti-alert-triangle me-1"></i> Quá hạn xử lý';
-            el.className = 'badge bg-danger text-white fw-bold fb-timer px-2 py-1 shadow-sm';
+            el.innerHTML = '<i class="ti ti-alert-triangle me-1"></i> Đang thu hồi...';
+            el.className = 'badge bg-dark text-white fw-bold fb-timer px-2 py-1 shadow-sm pulse-animation';
         } else {
             const minutes = Math.floor(diff / 60000);
             if (minutes < 60) {
-                el.innerHTML = `<i class="ti ti-hourglass-empty me-1"></i> Còn ${minutes} phút`;
-                el.className = 'badge bg-warning text-dark fw-bold fb-timer px-2 py-1';
+                // Đổi màu cảnh báo Đỏ khi chỉ còn dưới 3 phút
+                if (minutes <= 3) {
+                    el.innerHTML = `<i class="ti ti-hourglass-empty me-1"></i> Còn ${minutes} phút`;
+                    el.className = 'badge bg-danger text-white fw-bold fb-timer px-2 py-1 pulse-animation shadow-sm';
+                } else {
+                    el.innerHTML = `<i class="ti ti-hourglass-empty me-1"></i> Còn ${minutes} phút`;
+                    el.className = 'badge bg-warning text-dark fw-bold fb-timer px-2 py-1';
+                }
             } else {
                 const hours = Math.floor(minutes / 60);
                 el.innerHTML = `<i class="ti ti-clock me-1"></i> Còn ${hours} giờ`;
