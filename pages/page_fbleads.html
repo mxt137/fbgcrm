@@ -230,18 +230,15 @@ let currentAvailableMembers = [];
 let allFbTeams = []; // Cache danh sách team cho tính năng Test
 let globalFbSettings = null; // Lưu cấu hình hệ thống
 
-// HÀM KHỞI TẠO MODULE
+  // HÀM KHỞI TẠO MODULE
   async function initFbLeadsModule() {
     const role = window.currentUser.role;
     
-    // BỔ SUNG GỌI HÀM TẢI CẤU HÌNH TRƯỚC TIÊN
     await loadFbSettings();
 
     if (role === 'system' || role === 'admin') {
         document.getElementById('navTeamManagement').style.display = 'block';
         document.getElementById('navSystemMonitor').style.display = 'block';
-        
-        // Chỉ System mới thấy khung cài đặt
         if (role === 'system') document.getElementById('systemSettingsPanel').style.display = 'block';
         
         await loadFbTeams();
@@ -250,7 +247,36 @@ let globalFbSettings = null; // Lưu cấu hình hệ thống
     
     await fetchFbMembersCache();
     await loadMyFbLeads();
-    setInterval(updateCountdowns, 60000); 
+
+    // ==========================================
+    // KHỞI CHẠY TIẾN TRÌNH CHẠY NGẦM (BACKGROUND WORKER)
+    // ==========================================
+    setInterval(async () => {
+        // 1. Cập nhật giao diện đếm ngược trên màn hình
+        updateCountdowns();
+        
+        // 2. Gọi hàm RPC dọn dẹp Data quá hạn
+        if (window.currentUser) {
+            // Lệnh này cực nhẹ, chỉ quét những dòng quá hạn, không tốn tài nguyên
+            await window.sbClient.rpc('sweep_expired_fbleads');
+            
+            // Nếu là Admin/System đang mở Tab Giám Sát, tự động Refresh bảng để thấy số nhảy
+            if (role === 'system' || role === 'admin') {
+                const monitorTab = document.getElementById('tabs-monitor');
+                if (monitorTab && monitorTab.classList.contains('active')) {
+                    loadAllFbLeads();
+                }
+            }
+            
+            // Nếu là Sales đang mở Tab Data, tự động Refresh để làm biến mất số bị tước
+            if (role === 'sales' || role === 'manager') {
+                const myLeadsTab = document.getElementById('tabs-myleads');
+                if (myLeadsTab && myLeadsTab.classList.contains('active')) {
+                    loadMyFbLeads();
+                }
+            }
+        }
+    }, 60000); // 60000ms = 60 giây chạy 1 lần
 }
   // ==========================================
 // QUẢN LÝ CẤU HÌNH HỆ THỐNG (SYSTEM SETTINGS)
@@ -406,7 +432,6 @@ async function triggerAutoAssign() {
     Swal.fire({ title: 'Đang chạy thuật toán Round-Robin...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
-        // 1. Tìm các Lead trạng thái 'New' và chưa có chủ
         const { data: leads, error: e1 } = await window.sbClient.from('fbleads_data')
             .select('id, assigned_team').eq('lead_status', 'New').is('assigned_to', null);
         
@@ -414,12 +439,13 @@ async function triggerAutoAssign() {
         if (!leads || leads.length === 0) { Swal.fire('Thông báo', 'Không có Data nào đang trống chủ để phân bổ.', 'info'); return; }
 
         let assignedCount = 0;
+        
+        // Lấy số phút thu hồi từ bảng Setting (Mặc định 15 phút nếu chưa có)
+        const revokeMins = globalFbSettings ? globalFbSettings.auto_revoke_minutes : 15;
 
-        // 2. Lặp qua từng Lead để chia số
         for (let lead of leads) {
             if (!lead.assigned_team) continue;
 
-            // Tìm nhân sự trong nhóm có vòng lặp (round_number) nhỏ nhất
             const { data: members, error: e2 } = await window.sbClient.from('fbleads_team_members')
                 .select('member_id, round_number, last_received_at')
                 .eq('team_id', lead.assigned_team)
@@ -428,26 +454,31 @@ async function triggerAutoAssign() {
                 .order('last_received_at', { ascending: true, nullsFirst: true })
                 .limit(1);
 
-            if (e2 || !members || members.length === 0) continue; // Nhóm không có ai thì bỏ qua Lead này
+            if (e2 || !members || members.length === 0) continue; 
 
             const targetSales = members[0];
+            const vnTime = new Date().getTime();
+            
+            // TÍNH TOÁN HẠN CHÓT (DEADLINE) BAN ĐẦU DỰA TRÊN SETTINGS
+            const initialDeadline = new Date(vnTime + revokeMins * 60000).toISOString();
 
-            // 3. Cập nhật Lead cho Sales này
+            // Cập nhật Lead cho Sales này KÈM THEO retention_deadline
             await window.sbClient.from('fbleads_data').update({
                 assigned_to: targetSales.member_id,
-                assigned_at: new Date().toISOString()
+                assigned_at: new Date(vnTime).toISOString(),
+                retention_deadline: initialDeadline,
+                lead_status: 'Processing' // Đổi thành Processing để bắt đầu đếm giờ
             }).eq('id', lead.id);
 
-            // 4. Tăng Round Number của Sales lên 1 và cập nhật thời gian
             await window.sbClient.from('fbleads_team_members').update({
                 round_number: (targetSales.round_number || 0) + 1,
-                last_received_at: new Date().toISOString()
+                last_received_at: new Date(vnTime).toISOString()
             }).match({ team_id: lead.assigned_team, member_id: targetSales.member_id });
 
             assignedCount++;
         }
 
-        Swal.fire('Hoàn tất', `Đã phân bổ thành công ${assignedCount} Lead cho các Sales tương ứng.`, 'success');
+        Swal.fire('Hoàn tất', `Đã phân bổ thành công ${assignedCount} Lead. Hạn chót xử lý: ${revokeMins} phút.`, 'success');
         loadAllFbLeads();
 
     } catch (err) {
