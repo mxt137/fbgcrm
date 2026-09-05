@@ -1,0 +1,622 @@
+<div class="page-header d-print-none mt-4">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title fw-bold" style="color: #146654;">
+          <i class="ti ti-brand-facebook me-2 fs-1"></i> Quản Lý Lead Facebook (Hot Ads)
+        </h2>
+        <div class="text-muted mt-1 fs-5">Hệ thống phân bổ tự động & luân chuyển Data tốc độ cao từ Kho Marketing</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <!-- THANH ĐIỀU HƯỚNG TABS -->
+    <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
+      <ul class="nav nav-tabs nav-fill" data-bs-toggle="tabs">
+        <li class="nav-item">
+          <a href="#tabs-myleads" class="nav-link active fw-bold py-3" data-bs-toggle="tab" style="color: #475569;">
+            <i class="ti ti-headset me-2 fs-2"></i> Khai Thác Lead (Sales)
+          </a>
+        </li>
+        <li class="nav-item" id="navTeamManagement" style="display:none;">
+          <a href="#tabs-teams" class="nav-link fw-bold py-3" data-bs-toggle="tab" style="color: #475569;">
+            <i class="ti ti-users-group me-2 fs-2"></i> Quản Trị Nhóm
+          </a>
+        </li>
+        <li class="nav-item" id="navSystemMonitor" style="display:none;">
+          <a href="#tabs-monitor" class="nav-link fw-bold py-3" data-bs-toggle="tab" style="color: #475569;">
+            <i class="ti ti-radar me-2 fs-2 text-danger"></i> Giám Sát & Test Luồng
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tab-content">
+      
+      <!-- ============================================== -->
+      <!-- TAB 1: KHAI THÁC LEAD (SALES)                  -->
+      <!-- ============================================== -->
+      <div class="tab-pane active show" id="tabs-myleads">
+        <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-white border rounded-3 shadow-sm">
+          <h3 class="m-0 fw-bold text-dark"><i class="ti ti-flame text-danger me-2"></i>Data Nóng Của Bạn</h3>
+          <button class="btn btn-outline-primary fw-bold" onclick="loadMyFbLeads()">
+             <i class="ti ti-refresh me-2"></i>Làm mới
+          </button>
+        </div>
+        <div class="row g-4" id="myFbLeadsContainer">
+            <div class="col-12 text-center py-5 text-muted">
+                <span class="spinner-border spinner-border-sm text-primary me-2"></span> Đang tải dữ liệu khách hàng...
+            </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 2: QUẢN TRỊ NHÓM                           -->
+      <!-- ============================================== -->
+      <div class="tab-pane" id="tabs-teams">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-3">
+              <div class="card-header bg-light">
+                <h4 class="card-title fw-bold m-0 text-dark"><i class="ti ti-list me-2"></i>Danh sách Nhóm</h4>
+              </div>
+              <div class="card-body">
+                <div class="d-flex gap-2 mb-3">
+                  <input type="text" id="newFbTeamName" class="form-control fw-medium" placeholder="Tên nhóm mới...">
+                  <button class="btn text-white fw-bold" style="background-color: #146654;" onclick="createFbTeam()"><i class="ti ti-plus"></i></button>
+                </div>
+                <div class="list-group list-group-flush border rounded-3" id="fbTeamList"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-8">
+             <div class="card shadow-sm border-0 rounded-3" id="teamMembersCard" style="display:none;">
+                <div class="card-header bg-light">
+                  <h4 class="card-title fw-bold m-0 text-dark" id="selectedTeamTitle">Thành viên nhóm</h4>
+                </div>
+                <div class="card-body">
+                   <div class="d-flex flex-column gap-2 mb-4 p-3 rounded-3" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed rgba(20, 102, 84, 0.2);">
+                     <div class="input-icon">
+                       <span class="input-icon-addon"><i class="ti ti-search text-muted"></i></span>
+                       <input type="text" id="searchMemberInput" class="form-control bg-white" placeholder="Gõ tên tìm nhanh nhân sự..." onkeyup="filterMemberSelect()">
+                     </div>
+                     <div class="d-flex gap-2">
+                       <select id="selectFbMemberToAdd" class="form-select fw-medium border-0 shadow-sm"></select>
+                       <button class="btn btn-success fw-bold shadow-sm text-nowrap" onclick="addMemberToFbTeam()"><i class="ti ti-user-plus me-2"></i>Thêm vào nhóm</button>
+                     </div>
+                   </div>
+                   <div class="table-responsive border rounded-3">
+                     <table class="table table-vcenter table-hover m-0">
+                       <thead class="bg-light">
+                         <tr><th class="ps-3">THÀNH VIÊN</th><th>TRẠNG THÁI</th><th>VÒNG LẶP</th><th>LẦN NHẬN CUỐI</th><th class="text-center">THAO TÁC</th></tr>
+                       </thead>
+                       <tbody id="fbTeamMembersTable"></tbody>
+                     </table>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 3: GIÁM SÁT & TEST LUỒNG (SYSTEM)          -->
+      <!-- ============================================== -->
+      <div class="tab-pane" id="tabs-monitor">
+         <!-- TOOL TEST CHO DEVELOPER/SYSTEM -->
+         <div class="card shadow-sm border-0 rounded-3 mb-4 border-start border-danger border-4">
+            <div class="card-body">
+              <h4 class="fw-bold text-danger mb-3"><i class="ti ti-bug me-2"></i>Khu vực Test Luồng Phân Bổ (Developer Tools)</h4>
+              <div class="d-flex gap-3 align-items-center">
+                 <select id="testTeamSelect" class="form-select fw-bold" style="width: 250px;"></select>
+                 <button class="btn btn-warning fw-bold text-dark" onclick="generateDummyLeads()">
+                    <i class="ti ti-database-import me-2"></i> 1. Tạo 5 Data Mẫu
+                 </button>
+                 <button class="btn text-white fw-bold" style="background-color: #146654;" onclick="triggerAutoAssign()">
+                    <i class="ti ti-arrows-shuffle me-2"></i> 2. Chạy Thuật Toán Phân Bổ
+                 </button>
+              </div>
+              <div class="mt-2 text-muted" style="font-size: 12px; font-style: italic;">Quy trình test: Chọn Nhóm ➔ Bấm nút 1 để bơm Data rỗng chủ ➔ Bấm nút 2 để hệ thống tự động chia số cho các Sales có trong Nhóm.</div>
+            </div>
+         </div>
+
+         <!-- BẢNG GIÁM SÁT DATA -->
+         <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+              <h4 class="card-title fw-bold m-0 text-dark"><i class="ti ti-device-desktop-analytics me-2"></i>Giám sát Data Hot Ads</h4>
+              <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadAllFbLeads()"><i class="ti ti-refresh me-2"></i>Tải lại</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-vcenter table-hover m-0">
+                <thead class="bg-light">
+                  <tr>
+                    <th class="ps-3">THÔNG TIN DATA</th>
+                    <th>PHÂN BỔ CHO</th>
+                    <th>NHÓM (DỰ ÁN)</th>
+                    <th>THỜI HẠN XỬ LÝ</th>
+                    <th class="text-center">SYSTEM ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="allFbLeadsTable"></tbody>
+              </table>
+            </div>
+         </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BÁO CÁO NHANH CHO SALES -->
+<div class="modal modal-blur fade" id="modal-fb-report" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0 rounded-3 overflow-hidden">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%);">
+        <h5 class="modal-title fw-bold fs-3"><i class="ti ti-clipboard-data me-2"></i> Báo Cáo Xử Lý Data</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4 bg-white">
+        <input type="hidden" id="reportLeadId">
+        <div class="mb-4">
+           <label class="form-label fw-bold text-dark mb-3">Chọn hành động tiếp theo:</label>
+           <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
+              <label class="form-selectgroup-item flex-fill">
+                <input type="radio" name="reportAction" value="reject" class="form-selectgroup-input" checked>
+                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
+                  <div class="me-3"><i class="ti ti-ban fs-1 text-danger"></i></div>
+                  <div class="text-start">
+                    <div class="fw-bold text-danger fs-4 mb-1">Bỏ qua (Giải phóng Data)</div>
+                    <div class="text-muted" style="font-size:12px;">Khách không nhu cầu hoặc sai số. Trả lại hệ thống.</div>
+                  </div>
+                </div>
+              </label>
+              <label class="form-selectgroup-item flex-fill">
+                <input type="radio" name="reportAction" value="keep_60" class="form-selectgroup-input">
+                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
+                  <div class="me-3"><i class="ti ti-clock-hour-1 fs-1 text-primary"></i></div>
+                  <div class="text-start">
+                    <div class="fw-bold text-primary fs-4 mb-1">Giữ lại 60 Phút</div>
+                    <div class="text-muted" style="font-size:12px;">Hẹn gọi lại sau ít phút. Bạn giữ quyền ưu tiên.</div>
+                  </div>
+                </div>
+              </label>
+              <label class="form-selectgroup-item flex-fill">
+                <input type="radio" name="reportAction" value="keep_72" class="form-selectgroup-input">
+                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
+                  <div class="me-3"><i class="ti ti-star-filled fs-1 text-success"></i></div>
+                  <div class="text-start">
+                    <div class="fw-bold text-success fs-4 mb-1">Chuyển Tiềm Năng (Giữ 72h)</div>
+                    <div class="text-muted" style="font-size:12px;">Khách nét, chuẩn bị đi xem dự án hoặc cọc.</div>
+                  </div>
+                </div>
+              </label>
+           </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-bold text-dark">Ghi chú chi tiết:</label>
+          <textarea id="reportNotes" class="form-control bg-light fw-medium rounded-3" rows="3" placeholder="Nhập diễn biến chăm sóc (Bắt buộc)..." style="resize: none;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-top">
+        <button type="button" class="btn btn-link link-secondary fw-bold" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn text-white fw-bold shadow-sm" style="background: #146654;" onclick="submitFbReport()">
+           Xác nhận Báo cáo
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- LOGIC XỬ LÝ JAVASCRIPT                       -->
+<!-- ============================================ -->
+<script>
+let fbMembersCache = [];
+let currentSelectedTeam = null;
+let currentAvailableMembers = [];
+let allFbTeams = []; // Cache danh sách team cho tính năng Test
+
+// HÀM KHỞI TẠO MODULE
+async function initFbLeadsModule() {
+    const role = window.currentUser.role;
+    
+    if (role === 'system' || role === 'admin') {
+        document.getElementById('navTeamManagement').style.display = 'block';
+        document.getElementById('navSystemMonitor').style.display = 'block';
+        await loadFbTeams();
+        loadAllFbLeads();
+    }
+    
+    await fetchFbMembersCache();
+    await loadMyFbLeads();
+    setInterval(updateCountdowns, 60000); 
+}
+
+// LẤY DANH SÁCH NHÂN SỰ TOÀN HỆ THỐNG
+async function fetchFbMembersCache() {
+    const { data } = await window.sbClient.from('safe_members').select('id, full_name, role').eq('is_active', true);
+    if(data) fbMembersCache = data;
+}
+
+// ==========================================
+// TÍNH NĂNG TEST: TẠO DATA & PHÂN BỔ (ADMIN)
+// ==========================================
+async function generateDummyLeads() {
+    const teamId = document.getElementById('testTeamSelect').value;
+    if(!teamId) { Swal.fire('Lỗi', 'Vui lòng chọn 1 Nhóm để bơm Data!', 'warning'); return; }
+    
+    Swal.fire({ title: 'Đang tạo 5 Data ảo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    const dummyData = [];
+    for(let i=1; i<=5; i++) {
+        dummyData.push({
+            customer_name: `Khách Test Phân Bổ ${i}`,
+            phone: `090${Math.floor(1000000 + Math.random() * 9000000)}`,
+            city: 'Đà Nẵng',
+            demand: 'Cần mua căn 2PN view biển',
+            lead_status: 'New',
+            assigned_team: teamId, // Ép vào Nhóm được chọn
+            satellite_sheet_id: 'dummy_sheet',
+            satellite_tab_name: 'dummy_tab',
+            satellite_row_index: i
+        });
+    }
+
+    // Không kiểm tra trùng lặp, cứ thế Insert
+    const { error } = await window.sbClient.from('fbleads_data').insert(dummyData);
+    if(error) { Swal.fire('Lỗi DB', error.message, 'error'); return; }
+    
+    Swal.fire('Thành công', 'Đã bơm 5 Data rỗng vào hệ thống. Hãy bấm Chạy Phân Bổ.', 'success');
+    loadAllFbLeads();
+}
+
+async function triggerAutoAssign() {
+    Swal.fire({ title: 'Đang chạy thuật toán Round-Robin...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        // 1. Tìm các Lead trạng thái 'New' và chưa có chủ
+        const { data: leads, error: e1 } = await window.sbClient.from('fbleads_data')
+            .select('id, assigned_team').eq('lead_status', 'New').is('assigned_to', null);
+        
+        if (e1) throw e1;
+        if (!leads || leads.length === 0) { Swal.fire('Thông báo', 'Không có Data nào đang trống chủ để phân bổ.', 'info'); return; }
+
+        let assignedCount = 0;
+
+        // 2. Lặp qua từng Lead để chia số
+        for (let lead of leads) {
+            if (!lead.assigned_team) continue;
+
+            // Tìm nhân sự trong nhóm có vòng lặp (round_number) nhỏ nhất
+            const { data: members, error: e2 } = await window.sbClient.from('fbleads_team_members')
+                .select('member_id, round_number, last_received_at')
+                .eq('team_id', lead.assigned_team)
+                .eq('is_active', true)
+                .order('round_number', { ascending: true })
+                .order('last_received_at', { ascending: true, nullsFirst: true })
+                .limit(1);
+
+            if (e2 || !members || members.length === 0) continue; // Nhóm không có ai thì bỏ qua Lead này
+
+            const targetSales = members[0];
+
+            // 3. Cập nhật Lead cho Sales này
+            await window.sbClient.from('fbleads_data').update({
+                assigned_to: targetSales.member_id,
+                assigned_at: new Date().toISOString()
+            }).eq('id', lead.id);
+
+            // 4. Tăng Round Number của Sales lên 1 và cập nhật thời gian
+            await window.sbClient.from('fbleads_team_members').update({
+                round_number: (targetSales.round_number || 0) + 1,
+                last_received_at: new Date().toISOString()
+            }).match({ team_id: lead.assigned_team, member_id: targetSales.member_id });
+
+            assignedCount++;
+        }
+
+        Swal.fire('Hoàn tất', `Đã phân bổ thành công ${assignedCount} Lead cho các Sales tương ứng.`, 'success');
+        loadAllFbLeads();
+
+    } catch (err) {
+        Swal.fire('Lỗi thuật toán', err.message, 'error');
+    }
+}
+
+// ==========================================
+// TÍNH NĂNG SALES: KHAI THÁC CHÍNH
+// ==========================================
+async function loadMyFbLeads() {
+    const container = document.getElementById('myFbLeadsContainer');
+    container.innerHTML = '<div class="col-12 text-center py-5"><span class="spinner-border text-primary me-2"></span> Đang đồng bộ Data...</div>';
+    
+    // Join với bảng Teams để lấy Tên Dự án
+    const { data, error } = await window.sbClient.from('fbleads_data')
+        .select('*, fbleads_teams(name)')
+        .eq('assigned_to', window.currentUser.id)
+        .order('assigned_at', { ascending: false });
+        
+    if (error) { container.innerHTML = '<div class="text-danger p-3">Lỗi Database: '+error.message+'</div>'; return; }
+    
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div class="col-12 text-center py-5">
+            <i class="ti ti-cup text-muted mb-3" style="font-size: 60px; opacity: 0.2;"></i>
+            <div class="text-muted fs-3 fw-bold">Bạn đã xử lý gọn gàng toàn bộ Data Nóng!</div>
+            <p class="text-muted mt-2" style="font-size: 13px;">Hệ thống sẽ tự động rót số ngay khi có khách hàng mới.</p>
+        </div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    data.forEach((lead, index) => {
+        let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}">Đang tính toán...</span>`;
+        const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
+        
+        container.innerHTML += `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 p-3 d-flex flex-column shadow-sm border-0 rounded-3 border-start border-4" style="border-left-color: #146654 !important;">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <span class="badge bg-danger text-white fw-bold px-2 py-1 shadow-sm"><i class="ti ti-flame me-1"></i>HOT LEAD</span>
+                    ${timerHtml}
+                </div>
+                
+                <div class="mb-3">
+                   <span class="badge" style="background: rgba(20, 102, 84, 0.1); color: #146654; font-size: 11px; padding: 6px 10px; border: 1px solid rgba(20, 102, 84, 0.2);">
+                      <i class="ti ti-building-skyscraper me-1"></i> Thuộc nhóm: ${teamName}
+                   </span>
+                </div>
+                
+                <h3 class="fw-bold mb-1 fs-3 text-dark"><i class="ti ti-user-circle me-1 text-muted"></i> ${lead.customer_name || 'Khách hàng Ads'}</h3>
+                <div class="fs-2 fw-bold mb-2 mt-1" style="color: #146654; letter-spacing: 0.5px;">
+                    <i class="ti ti-phone-call me-1 text-success"></i> ${lead.phone}
+                </div>
+                
+                <div class="text-muted mb-3" style="font-size:13px; line-height: 1.5;">
+                    <div><i class="ti ti-tag me-1 text-warning"></i> Nhu cầu: <span class="fw-bold text-dark">${lead.demand || 'Chưa rõ'}</span></div>
+                    <div class="mt-1"><i class="ti ti-map-pin me-1 text-danger"></i> Khu vực: <span class="fw-medium text-dark">${lead.city || 'Chưa rõ'}</span></div>
+                </div>
+                
+                <div class="mt-auto pt-3 d-flex gap-2 border-top">
+                    <a href="tel:${lead.phone}" class="btn btn-outline-success fw-bold flex-grow-1" style="border-radius: 8px;">
+                        <i class="ti ti-phone me-1 fs-3"></i> Tương tác
+                    </a>
+                    <button class="btn text-white fw-bold flex-grow-1 shadow-sm" style="background: #146654; border-radius: 8px;" onclick="openReportModal('${lead.id}')">
+                        <i class="ti ti-clipboard-check me-1 fs-3"></i> Báo Cáo
+                    </button>
+                </div>
+            </div>
+        </div>
+        `;
+    });
+    updateCountdowns();
+}
+
+function updateCountdowns() {
+    const timers = document.querySelectorAll('.fb-timer');
+    const now = new Date().getTime();
+    timers.forEach(el => {
+        const deadlineStr = el.getAttribute('data-deadline');
+        if (!deadlineStr || deadlineStr === "null") {
+            el.innerHTML = '<i class="ti ti-infinity"></i> Chưa báo cáo';
+            el.className = 'badge bg-secondary-lt fw-bold fb-timer px-2 py-1';
+            return;
+        }
+        
+        const deadline = new Date(deadlineStr).getTime();
+        const diff = deadline - now;
+        
+        if (diff <= 0) {
+            el.innerHTML = '<i class="ti ti-alert-triangle me-1"></i> Quá hạn xử lý';
+            el.className = 'badge bg-danger text-white fw-bold fb-timer px-2 py-1 shadow-sm';
+        } else {
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 60) {
+                el.innerHTML = `<i class="ti ti-hourglass-empty me-1"></i> Còn ${minutes} phút`;
+                el.className = 'badge bg-warning text-dark fw-bold fb-timer px-2 py-1';
+            } else {
+                const hours = Math.floor(minutes / 60);
+                el.innerHTML = `<i class="ti ti-clock me-1"></i> Còn ${hours} giờ`;
+                el.className = 'badge bg-success text-white fw-bold fb-timer px-2 py-1 shadow-sm';
+            }
+        }
+    });
+}
+
+function openReportModal(leadId) {
+    document.getElementById('reportLeadId').value = leadId;
+    document.getElementById('reportNotes').value = '';
+    document.querySelector('input[name="reportAction"][value="reject"]').checked = true;
+    new bootstrap.Modal(document.getElementById('modal-fb-report')).show();
+}
+
+async function submitFbReport() {
+    const leadId = document.getElementById('reportLeadId').value;
+    const action = document.querySelector('input[name="reportAction"]:checked').value;
+    const notes = document.getElementById('reportNotes').value.trim();
+    
+    if (!notes) { Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); return; }
+    
+    bootstrap.Modal.getInstance(document.getElementById('modal-fb-report')).hide();
+    Swal.fire({ title: 'Đang lưu báo cáo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    try {
+        const vnTime = new Date().toISOString();
+        const myId = window.currentUser.id;
+
+        await window.sbClient.from('fbleads_care_logs').insert([{ lead_id: leadId, member_id: myId, action: action, content: notes, created_at: vnTime }]);
+
+        if (action === 'reject') {
+            // Nhả số cho vòng quay
+            await window.sbClient.from('fbleads_data').update({ 
+                assigned_to: null, is_transferred: true, lead_status: 'Transferred', updated_at: vnTime 
+            }).eq('id', leadId);
+            
+            await window.sbClient.from('fbleads_transfer_logs').insert([{ lead_id: leadId, from_member_id: myId, reason: 'Bỏ qua: ' + notes }]);
+            
+        } else {
+            // Tịnh tiến Deadline
+            let hours = (action === 'keep_72') ? 72 : 1;
+            const newDeadline = new Date(new Date().getTime() + hours * 60 * 60 * 1000).toISOString();
+            
+            await window.sbClient.from('fbleads_data').update({ 
+                retention_deadline: newDeadline, lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', updated_at: vnTime
+            }).eq('id', leadId);
+        }
+        
+        Swal.fire({ icon:'success', title:'Thành công', showConfirmButton: false, timer: 1500 });
+        loadMyFbLeads();
+    } catch(e) { Swal.fire('Lỗi', e.message, 'error'); }
+}
+
+// ==========================================
+// TÍNH NĂNG ADMIN: QUẢN TRỊ NHÓM
+// ==========================================
+async function loadFbTeams() {
+    const { data } = await window.sbClient.from('fbleads_teams').select('*').order('created_at', { ascending: false });
+    const list = document.getElementById('fbTeamList');
+    const testSelect = document.getElementById('testTeamSelect');
+    
+    list.innerHTML = '';
+    testSelect.innerHTML = '<option value="">-- Chọn Nhóm để Test --</option>';
+    
+    if(data) {
+        allFbTeams = data;
+        data.forEach(t => {
+            // Nạp vào List quản trị
+            list.innerHTML += `<a href="javascript:void(0)" onclick="selectFbTeam('${t.id}', '${t.name}')" class="list-group-item list-group-item-action fw-bold d-flex justify-content-between align-items-center border-0 mb-1 rounded-3" style="background: #f8fafc;">
+                <span class="text-dark"><i class="ti ti-folder text-warning me-2"></i>${t.name}</span>
+                <i class="ti ti-chevron-right text-muted"></i>
+            </a>`;
+            
+            // Nạp vào Select Box của Tool Test
+            testSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+        });
+    }
+}
+
+async function createFbTeam() {
+    const name = document.getElementById('newFbTeamName').value.trim();
+    if(!name) return;
+    
+    Swal.fire({ title: 'Đang tạo nhóm...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const { error } = await window.sbClient.from('fbleads_teams').insert([{ name: name }]);
+    
+    if (error) { Swal.fire('Lỗi', error.message, 'error'); return; }
+    document.getElementById('newFbTeamName').value = '';
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Tạo nhóm thành công', showConfirmButton: false, timer: 1500});
+    loadFbTeams();
+}
+
+async function selectFbTeam(id, name) {
+    currentSelectedTeam = id;
+    document.getElementById('teamMembersCard').style.display = 'block';
+    document.getElementById('selectedTeamTitle').innerHTML = `<i class="ti ti-shield-check text-primary me-2"></i>Cấu hình nhóm: <span class="text-danger">${name}</span>`;
+    document.getElementById('searchMemberInput').value = '';
+    
+    const { data: teamMembers } = await window.sbClient.from('fbleads_team_members').select('*').eq('team_id', id);
+    const tmIds = teamMembers ? teamMembers.map(tm => tm.member_id) : [];
+    
+    currentAvailableMembers = fbMembersCache.filter(m => !tmIds.includes(m.id) && m.role !== 'system');
+    renderMemberSelect(currentAvailableMembers);
+    
+    const tbody = document.getElementById('fbTeamMembersTable');
+    tbody.innerHTML = '';
+    if(teamMembers && teamMembers.length > 0) {
+        teamMembers.forEach(tm => {
+            const mInfo = fbMembersCache.find(x => x.id === tm.member_id);
+            const nameStr = mInfo ? mInfo.full_name : 'Tài khoản đã xóa';
+            
+            tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-dark"><i class="ti ti-user-circle me-2 text-muted"></i>${nameStr}</td>
+                <td><span class="badge ${tm.is_active ? 'bg-success' : 'bg-secondary'}">${tm.is_active ? 'Sẵn sàng' : 'Tạm nghỉ'}</span></td>
+                <td><span class="badge bg-blue-lt px-2 py-1 fw-bold border border-primary">Vòng ${tm.round_number || 0}</span></td>
+                <td class="text-muted fw-medium" style="font-size:12px;">${tm.last_received_at ? new Date(tm.last_received_at).toLocaleTimeString() : 'Chưa nhận'}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-danger p-1 px-2 border-0" onclick="removeFbTeamMember('${tm.member_id}')"><i class="ti ti-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+    } else {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nhóm trống. Hãy bổ sung nhân sự!</td></tr>';
+    }
+}
+
+function renderMemberSelect(members) {
+    const selectAdd = document.getElementById('selectFbMemberToAdd');
+    selectAdd.innerHTML = '<option value="">-- Chọn Nhân sự --</option>';
+    members.forEach(m => { selectAdd.innerHTML += `<option value="${m.id}">${m.full_name} - [${m.role}]</option>`; });
+}
+
+function filterMemberSelect() {
+    const keyword = document.getElementById('searchMemberInput').value.toLowerCase().trim();
+    const filtered = currentAvailableMembers.filter(m => m.full_name.toLowerCase().includes(keyword));
+    renderMemberSelect(filtered);
+}
+
+async function addMemberToFbTeam() {
+    const memberId = document.getElementById('selectFbMemberToAdd').value;
+    if(!memberId || !currentSelectedTeam) return; 
+    
+    Swal.fire({ title: 'Đang nạp...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const { error } = await window.sbClient.from('fbleads_team_members').insert([{ team_id: currentSelectedTeam, member_id: memberId, round_number: 0, is_active: true }]);
+
+    if (error) { Swal.fire('Lỗi DB', error.message, 'error'); return; }
+    
+    const currentName = document.getElementById('selectedTeamTitle').innerText.replace('Cấu hình nhóm: ', '');
+    selectFbTeam(currentSelectedTeam, currentName);
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Thêm thành công', showConfirmButton: false, timer: 1500});
+}
+
+async function removeFbTeamMember(memberId) {
+    if(!currentSelectedTeam) return;
+    const { error } = await window.sbClient.from('fbleads_team_members').delete().match({ team_id: currentSelectedTeam, member_id: memberId });
+    if (!error) {
+        const currentName = document.getElementById('selectedTeamTitle').innerText.replace('Cấu hình nhóm: ', '');
+        selectFbTeam(currentSelectedTeam, currentName);
+    }
+}
+
+// ==========================================
+// TÍNH NĂNG SYSTEM: GIÁM SÁT TOÀN DIỆN
+// ==========================================
+async function loadAllFbLeads() {
+    const tbody = document.getElementById('allFbLeadsTable');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5"><span class="spinner-border text-primary me-2"></span> Đang truy xuất...</td></tr>';
+    
+    const { data } = await window.sbClient.from('fbleads_data').select('*, fbleads_teams(name)').order('created_at', { ascending: false }).limit(50);
+    if (!data) return;
+    
+    tbody.innerHTML = '';
+    data.forEach((lead) => {
+        const mInfo = fbMembersCache.find(x => x.id === lead.assigned_to);
+        const assignee = mInfo ? `<span class="fw-bold text-success"><i class="ti ti-user me-1"></i>${mInfo.full_name}</span>` : '<span class="badge bg-secondary-lt fw-bold fst-italic">Trống chủ (Đang luân chuyển)</span>';
+        const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : '-';
+        
+        tbody.innerHTML += `
+        <tr>
+            <td class="ps-3">
+                <div class="fw-bold text-dark fs-4">${lead.phone}</div>
+                <div class="text-muted" style="font-size:12px;">${lead.customer_name}</div>
+            </td>
+            <td>${assignee}</td>
+            <td><span class="badge bg-blue-lt fw-bold">${teamName}</span></td>
+            <td class="text-danger fw-bold" style="font-size:12px;">${lead.retention_deadline ? new Date(lead.retention_deadline).toLocaleTimeString() : 'Chưa áp dụng'}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-danger border-0" onclick="forceRevokeLead('${lead.id}')"><i class="ti ti-hand-stop me-1"></i>Tước Số</button>
+            </td>
+        </tr>
+        `;
+    });
+}
+
+async function forceRevokeLead(leadId) {
+    await window.sbClient.from('fbleads_data').update({ assigned_to: null, is_transferred: true, lead_status: 'Revoked' }).eq('id', leadId);
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thu hồi số', showConfirmButton: false, timer: 1500});
+    loadAllFbLeads();
+}
+</script>
