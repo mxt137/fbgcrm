@@ -234,16 +234,12 @@ let isForceSweeping = false; // Biến cờ ngăn chặn việc gọi API dồn 
 // HÀM KHỞI TẠO MODULE
 async function initFbLeadsModule() {
     const role = window.currentUser.role;
-    
-    // Tải cấu hình trước
     await loadFbSettings();
 
-    // Hiển thị giao diện theo quyền
     if (role === 'system' || role === 'admin') {
         document.getElementById('navTeamManagement').style.display = 'block';
         document.getElementById('navSystemMonitor').style.display = 'block';
         if (role === 'system') document.getElementById('systemSettingsPanel').style.display = 'block';
-        
         await loadFbTeams();
         loadAllFbLeads();
     }
@@ -251,45 +247,22 @@ async function initFbLeadsModule() {
     await fetchFbMembersCache();
     await loadMyFbLeads();
 
-    // ==========================================
-    // TIẾN TRÌNH CHẠY NGẦM QUÉT DATA QUÁ HẠN (TỐI ƯU UI)
-    // ==========================================
     setInterval(async () => {
-        // 1. Cập nhật nhãn đếm ngược liên tục trên giao diện
+        // Gọi updateCountdowns() xử lý UI. Nếu có Data = 0, nó sẽ tự động kích hoạt Sweep.
         updateCountdowns();
         
-        if (window.currentUser) {
+        // Vòng lặp ngầm: Quét phòng trường hợp Sales thu nhỏ trình duyệt
+        if (window.currentUser && !isForceSweeping) {
+            isForceSweeping = true;
             try {
-                // 2. Kích hoạt "Máy hút bụi" trên Supabase
-                // Hàm này trả về số lượng bản ghi vừa bị thu hồi
-                const { data: revokedCount, error } = await window.sbClient.rpc('sweep_expired_fbleads');
-                if (error) throw error;
-
-                // 3. NẾU CÓ DATA BỊ THU HỒI -> BẮT BUỘC LÀM MỚI GIAO DIỆN
+                const { data: revokedCount } = await window.sbClient.rpc('sweep_expired_fbleads');
                 if (revokedCount > 0) {
-                    // Nếu là Admin đang xem Tab Giám sát -> Cập nhật bảng
-                    const monitorTab = document.getElementById('tabs-monitor');
-                    if (monitorTab && monitorTab.classList.contains('active')) {
-                        loadAllFbLeads();
-                    }
-                    
-                    // Nếu là Sales đang xem Tab Cá nhân -> Cập nhật Card để thẻ quá hạn biến mất
-                    const myLeadsTab = document.getElementById('tabs-myleads');
-                    if (myLeadsTab && myLeadsTab.classList.contains('active')) {
-                        // Thêm hiệu ứng Toast nhẹ để Sales biết Data vừa bị tước
-                        Swal.fire({
-                            toast: true, position: 'bottom-end', icon: 'warning', 
-                            title: 'Hệ thống vừa thu hồi các Data quá hạn báo cáo!', 
-                            showConfirmButton: false, timer: 3000
-                        });
-                        loadMyFbLeads();
-                    }
+                    if (document.getElementById('tabs-monitor')?.classList.contains('active')) loadAllFbLeads();
+                    if (document.getElementById('tabs-myleads')?.classList.contains('active')) loadMyFbLeads();
                 }
-            } catch (e) {
-                console.error('Lỗi Background Worker (Auto-Revoke):', e);
-            }
+            } catch (e) {} finally { isForceSweeping = false; }
         }
-    }, 60000); // Quét mỗi 60 giây
+    }, 60000); 
 }
   
 // ==========================================
@@ -525,7 +498,6 @@ async function loadMyFbLeads() {
     }
 
     container.innerHTML = '';
-    // TÌM ĐẾN ĐOẠN NÀY TRONG HÀM loadMyFbLeads() VÀ THAY THẾ
     data.forEach((lead, index) => {
         let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}" data-leadid="${lead.id}">Đang tính toán...</span>`;
         const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
@@ -543,7 +515,7 @@ async function loadMyFbLeads() {
         
         container.innerHTML += `
         <div class="col-md-6 col-lg-4">
-            <div class="card h-100 p-3 d-flex flex-column shadow-sm border-0 rounded-3 border-start border-4" style="border-left-color: #146654 !important;">
+            <div class="card h-100 p-3 d-flex flex-column shadow-sm border-0 rounded-3 border-start border-4" id="lead-card-${lead.id}" style="border-left-color: #146654 !important; transition: all 0.3s ease;">
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                     <span class="badge bg-danger text-white fw-bold px-2 py-1 shadow-sm"><i class="ti ti-flame me-1"></i>HOT LEAD</span>
                     ${timerHtml}
@@ -556,7 +528,9 @@ async function loadMyFbLeads() {
                 </div>
                 
                 <h3 class="fw-bold mb-1 fs-3 text-dark"><i class="ti ti-user-circle me-1 text-muted"></i> ${lead.customer_name || 'Khách hàng Ads'}</h3>
-                <div class="fs-2 fw-bold mb-2 mt-1" style="color: #146654; letter-spacing: 0.5px;">
+                
+                <!-- GẮN ID CHO SỐ ĐIỆN THOẠI ĐỂ DỄ DÀNG ẨN ĐI KHI HẾT GIỜ -->
+                <div class="fs-2 fw-bold mb-2 mt-1" id="phone-${lead.id}" style="color: #146654; letter-spacing: 0.5px;">
                     <i class="ti ti-phone-call me-1 text-success"></i> ${lead.phone}
                 </div>
                 
@@ -566,12 +540,11 @@ async function loadMyFbLeads() {
                     ${historyHtml}
                 </div>
                 
-                <!-- THÊM CLASS action-group VÀ ID CHO CÁC NÚT -->
-                <div class="mt-auto pt-3 d-flex gap-2 border-top action-group" id="action-group-${lead.id}">
-                    <a href="tel:${lead.phone}" class="btn btn-outline-success fw-bold flex-grow-1" style="border-radius: 8px;" id="btn-call-${lead.id}">
+                <div class="mt-auto pt-3 d-flex gap-2 border-top">
+                    <a href="tel:${lead.phone}" class="btn btn-outline-success fw-bold flex-grow-1" style="border-radius: 8px;">
                         <i class="ti ti-phone me-1 fs-3"></i> Tương tác
                     </a>
-                    <button class="btn text-white fw-bold flex-grow-1 shadow-sm" style="background: #146654; border-radius: 8px;" onclick="openReportModal('${lead.id}')" id="btn-report-${lead.id}">
+                    <button class="btn text-white fw-bold flex-grow-1 shadow-sm" style="background: #146654; border-radius: 8px;" onclick="openReportModal('${lead.id}')">
                         <i class="ti ti-clipboard-check me-1 fs-3"></i> Báo Cáo
                     </button>
                 </div>
@@ -601,18 +574,24 @@ async function updateCountdowns() {
         const diff = deadline - now;
         
         if (diff <= 0) {
-            el.innerHTML = '<i class="ti ti-alert-triangle me-1"></i> Đang thu hồi...';
-            el.className = 'badge bg-dark text-white fw-bold fb-timer px-2 py-1 shadow-sm pulse-animation';
+            el.innerHTML = '<i class="ti ti-lock me-1"></i> Đã khóa Data';
+            el.className = 'badge bg-dark text-white fw-bold fb-timer px-2 py-1 shadow-sm';
             
-            // 1. KHÓA TỨC THÌ CÁC NÚT BẤM TRÊN GIAO DIỆN
-            const callBtn = document.getElementById(`btn-call-${leadId}`);
-            const reportBtn = document.getElementById(`btn-report-${leadId}`);
-            if (callBtn) callBtn.classList.add('disabled');
-            if (reportBtn) reportBtn.disabled = true;
+            // UX TỐI ƯU: LÀM MỜ THẺ CARD, KHÓA CLICK VÀ CHÉM SỐ ĐIỆN THOẠI NGAY LẬP TỨC
+            const cardEl = document.getElementById(`lead-card-${leadId}`);
+            const phoneEl = document.getElementById(`phone-${leadId}`);
+            
+            if (cardEl) {
+                cardEl.style.opacity = '0.55';
+                cardEl.style.filter = 'grayscale(100%)';
+                cardEl.style.pointerEvents = 'none'; // Chặn mọi thao tác click/chọn văn bản
+            }
+            if (phoneEl) {
+                phoneEl.innerHTML = '<i class="ti ti-eye-off me-1"></i> *** *** ****';
+                phoneEl.style.color = '#94a3b8';
+            }
 
-            // 2. KÍCH HOẠT CỜ ÉP QUÉT
             needImmediateSweep = true;
-
         } else {
             const minutes = Math.floor(diff / 60000);
             if (minutes < 60) {
@@ -631,18 +610,16 @@ async function updateCountdowns() {
         }
     });
 
-    // 3. NẾU CÓ DATA QUÁ HẠN -> GỌI RPC THU HỒI NGAY LẬP TỨC
     if (needImmediateSweep && !isForceSweeping) {
         isForceSweeping = true;
         try {
             const { data: revokedCount } = await window.sbClient.rpc('sweep_expired_fbleads');
             if (revokedCount > 0) {
-                Swal.fire({ toast: true, position: 'bottom-end', icon: 'warning', title: 'Hệ thống vừa thu hồi Data quá hạn!', showConfirmButton: false, timer: 3000 });
+                Swal.fire({ toast: true, position: 'bottom-end', icon: 'warning', title: 'Đã thu hồi Data lố hạn!', showConfirmButton: false, timer: 3000 });
                 loadMyFbLeads();
                 if (document.getElementById('tabs-monitor')?.classList.contains('active')) loadAllFbLeads();
             }
-        } catch (e) { console.error('Force Sweep Error:', e); } 
-        finally { isForceSweeping = false; }
+        } catch (e) {} finally { isForceSweeping = false; }
     }
 }
 
