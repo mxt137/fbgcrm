@@ -334,7 +334,6 @@ async function loadMyFbLeads() {
     const container = document.getElementById('myFbLeadsContainer');
     container.innerHTML = '<div class="col-12 text-center py-5"><span class="spinner-border text-primary me-2"></span> Đang đồng bộ Data...</div>';
     
-    // Join với bảng Teams để lấy Tên Dự án
     const { data, error } = await window.sbClient.from('fbleads_data')
         .select('*, fbleads_teams(name)')
         .eq('assigned_to', window.currentUser.id)
@@ -355,6 +354,18 @@ async function loadMyFbLeads() {
     data.forEach((lead, index) => {
         let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}">Đang tính toán...</span>`;
         const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
+        
+        // BỔ SUNG LỊCH SỬ SALES TRƯỚC ĐÓ TỪ CHỐI
+        let historyHtml = '';
+        if (lead.report_history && lead.report_history.length > 0) {
+            let hItems = lead.report_history.map((h, i) => 
+                `<div style="font-size: 11px; margin-bottom: 4px; border-bottom: 1px dotted rgba(20, 102, 84, 0.2);"><span class="badge bg-secondary-lt me-1" style="font-size: 9px;">Lần ${i+1}</span> ${h}</div>`
+            ).join('');
+            historyHtml = `<div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.05); border: 1px dashed rgba(20, 102, 84, 0.3);">
+                            <div class="fw-bold mb-1" style="font-size: 10px; color: #146654;"><i class="ti ti-history me-1"></i>LỊCH SỬ BỎ QUA:</div>
+                            ${hItems}
+                           </div>`;
+        }
         
         container.innerHTML += `
         <div class="col-md-6 col-lg-4">
@@ -378,6 +389,7 @@ async function loadMyFbLeads() {
                 <div class="text-muted mb-3" style="font-size:13px; line-height: 1.5;">
                     <div><i class="ti ti-tag me-1 text-warning"></i> Nhu cầu: <span class="fw-bold text-dark">${lead.demand || 'Chưa rõ'}</span></div>
                     <div class="mt-1"><i class="ti ti-map-pin me-1 text-danger"></i> Khu vực: <span class="fw-medium text-dark">${lead.city || 'Chưa rõ'}</span></div>
+                    ${historyHtml}
                 </div>
                 
                 <div class="mt-auto pt-3 d-flex gap-2 border-top">
@@ -450,12 +462,9 @@ async function submitFbReport() {
     const action = document.querySelector('input[name="reportAction"]:checked').value;
     const notes = document.getElementById('reportNotes').value.trim();
     
-    if (!notes) { 
-        Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); 
-        return; 
-    }
+    if (!notes) { Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); return; }
     
-    // KHẮC PHỤC: Đóng Modal bằng cách click vào nút Close gốc trên UI
+    // Đóng Modal an toàn
     const closeBtn = document.querySelector('#modal-fb-report .btn-close');
     if (closeBtn) closeBtn.click();
     
@@ -465,47 +474,33 @@ async function submitFbReport() {
         const vnTime = new Date().toISOString();
         const myId = window.currentUser.id;
 
-        // 1. Lưu nội dung báo cáo
-        await window.sbClient.from('fbleads_care_logs').insert([{ 
-            lead_id: leadId, 
-            member_id: myId, 
-            action: action, 
-            content: notes, 
-            created_at: vnTime 
-        }]);
+        // Lưu log tĩnh vào bảng
+        await window.sbClient.from('fbleads_care_logs').insert([{ lead_id: leadId, member_id: myId, action: action, content: notes, created_at: vnTime }]);
 
         if (action === 'reject') {
-            // 2. NHÁNH BỎ QUA: Tước số và lưu logs luân chuyển
-            await window.sbClient.from('fbleads_data').update({ 
-                assigned_to: null, 
-                is_transferred: true, 
-                lead_status: 'Transferred', 
-                updated_at: vnTime 
-            }).eq('id', leadId);
+            // GỌI HÀM RPC ĐỂ TỰ ĐỘNG LUÂN CHUYỂN NGAY CHO SALES TIẾP THEO
+            await window.sbClient.rpc('process_fblead_reject', {
+                p_lead_id: leadId,
+                p_sales_id: myId,
+                p_reason: notes
+            });
             
-            await window.sbClient.from('fbleads_transfer_logs').insert([{ 
-                lead_id: leadId, 
-                from_member_id: myId, 
-                reason: 'Bỏ qua: ' + notes 
-            }]);
+            // Ghi logs chuyển
+            await window.sbClient.from('fbleads_transfer_logs').insert([{ lead_id: leadId, from_member_id: myId, reason: 'Bỏ qua: ' + notes }]);
             
         } else {
-            // 3. NHÁNH GIỮ LẠI: Tịnh tiến Deadline theo lựa chọn
+            // Giữ lại -> Chỉ tịnh tiến thời gian hạn chót
             let hours = (action === 'keep_72') ? 72 : (action === 'keep_12' ? 12 : 1);
             const newDeadline = new Date(new Date().getTime() + hours * 60 * 60 * 1000).toISOString();
             
             await window.sbClient.from('fbleads_data').update({ 
-                retention_deadline: newDeadline, 
-                lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', 
-                updated_at: vnTime
+                retention_deadline: newDeadline, lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', updated_at: vnTime
             }).eq('id', leadId);
         }
         
         Swal.fire({ icon:'success', title:'Thành công', showConfirmButton: false, timer: 1500 });
         loadMyFbLeads();
-    } catch(e) { 
-        Swal.fire('Lỗi Database', e.message, 'error'); 
-    }
+    } catch(e) { Swal.fire('Lỗi', e.message, 'error'); }
 }
 
 // ==========================================
