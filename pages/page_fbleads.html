@@ -107,6 +107,43 @@
       <!-- TAB 3: GIÁM SÁT & TEST LUỒNG (SYSTEM)          -->
       <!-- ============================================== -->
       <div class="tab-pane" id="tabs-monitor">
+<!-- KHU VỰC CẤU HÌNH THÔNG SỐ GLOBAL (CHỈ SYSTEM THẤY) -->
+<div class="card shadow-sm border-0 rounded-3 mb-4" id="systemSettingsPanel" style="display: none; border-left: 4px solid #146654 !important;">
+  <div class="card-header bg-light">
+    <h4 class="card-title fw-bold m-0" style="color: #146654;"><i class="ti ti-settings me-2"></i>Cấu Hình Hệ Thống Lead Facebook</h4>
+  </div>
+  <div class="card-body">
+    <div class="row g-4">
+      <!-- Cài đặt tự động thu hồi -->
+      <div class="col-md-4 border-end">
+        <label class="form-label fw-bold text-dark">Thời gian chờ tối đa (Auto-Revoke)</label>
+        <div class="text-muted mb-2" style="font-size: 11px;">Nếu Sales không thao tác báo cáo sau khi nhận, hệ thống sẽ tự động tước số trả về kho.</div>
+        <div class="input-group">
+          <input type="number" id="settingAutoRevoke" class="form-control fw-bold text-danger" min="1" placeholder="VD: 15">
+          <span class="input-group-text fw-bold">Phút</span>
+        </div>
+      </div>
+      
+      <!-- Cài đặt các mốc Giữ Lại -->
+      <div class="col-md-8">
+        <label class="form-label fw-bold text-dark d-flex justify-content-between">
+          <span>Các mốc thời gian "Giữ lại" (Dành cho Sales)</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="addKeepOptionRow()"><i class="ti ti-plus me-1"></i>Thêm mốc</button>
+        </label>
+        <div class="text-muted mb-2" style="font-size: 11px;">Tùy chỉnh các lựa chọn hiển thị trong Modal Báo Cáo. 1 Ngày = 1440 phút.</div>
+        
+        <div id="keepOptionsContainer" class="d-flex flex-column gap-2">
+          <!-- JS sẽ render các ô input vào đây -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer bg-white text-end border-top">
+    <button class="btn text-white fw-bold shadow-sm" style="background: #146654;" onclick="saveFbSettings()">
+      <i class="ti ti-device-floppy me-2"></i>Lưu Cấu Hình
+    </button>
+  </div>
+</div>
          <!-- TOOL TEST CHO DEVELOPER/SYSTEM -->
          <div class="card shadow-sm border-0 rounded-3 mb-4 border-start border-danger border-4">
             <div class="card-body">
@@ -161,39 +198,11 @@
       </div>
       <div class="modal-body p-4 bg-white">
         <input type="hidden" id="reportLeadId">
+        <!-- TÌM VÀ THAY THẾ KHU VỰC CHỌN HÀNH ĐỘNG TRONG MODAL THÀNH MÃ DƯỚI ĐÂY -->
         <div class="mb-4">
-           <label class="form-label fw-bold text-dark mb-3">Chọn hành động tiếp theo:</label>
-           <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
-              <label class="form-selectgroup-item flex-fill">
-                <input type="radio" name="reportAction" value="reject" class="form-selectgroup-input" checked>
-                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
-                  <div class="me-3"><i class="ti ti-ban fs-1 text-danger"></i></div>
-                  <div class="text-start">
-                    <div class="fw-bold text-danger fs-4 mb-1">Bỏ qua (Giải phóng Data)</div>
-                    <div class="text-muted" style="font-size:12px;">Khách không nhu cầu hoặc sai số. Trả lại hệ thống.</div>
-                  </div>
-                </div>
-              </label>
-              <label class="form-selectgroup-item flex-fill">
-                <input type="radio" name="reportAction" value="keep_60" class="form-selectgroup-input">
-                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
-                  <div class="me-3"><i class="ti ti-clock-hour-1 fs-1 text-primary"></i></div>
-                  <div class="text-start">
-                    <div class="fw-bold text-primary fs-4 mb-1">Giữ lại 60 Phút</div>
-                    <div class="text-muted" style="font-size:12px;">Hẹn gọi lại sau ít phút. Bạn giữ quyền ưu tiên.</div>
-                  </div>
-                </div>
-              </label>
-              <label class="form-selectgroup-item flex-fill">
-                <input type="radio" name="reportAction" value="keep_72" class="form-selectgroup-input">
-                <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
-                  <div class="me-3"><i class="ti ti-star-filled fs-1 text-success"></i></div>
-                  <div class="text-start">
-                    <div class="fw-bold text-success fs-4 mb-1">Chuyển Tiềm Năng (Giữ 72h)</div>
-                    <div class="text-muted" style="font-size:12px;">Khách nét, chuẩn bị đi xem dự án hoặc cọc.</div>
-                  </div>
-                </div>
-              </label>
+           <label class="form-label fw-bold text-dark mb-3"><i class="ti ti-mouse-2 me-1 text-primary"></i>Chọn hành động tiếp theo:</label>
+           <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2" id="dynamicReportOptions">
+              <div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải cấu hình hệ thống...</div>
            </div>
         </div>
         <div class="mb-2">
@@ -219,14 +228,22 @@ let fbMembersCache = [];
 let currentSelectedTeam = null;
 let currentAvailableMembers = [];
 let allFbTeams = []; // Cache danh sách team cho tính năng Test
+let globalFbSettings = null; // Lưu cấu hình hệ thống
 
 // HÀM KHỞI TẠO MODULE
-async function initFbLeadsModule() {
+  async function initFbLeadsModule() {
     const role = window.currentUser.role;
     
+    // BỔ SUNG GỌI HÀM TẢI CẤU HÌNH TRƯỚC TIÊN
+    await loadFbSettings();
+
     if (role === 'system' || role === 'admin') {
         document.getElementById('navTeamManagement').style.display = 'block';
         document.getElementById('navSystemMonitor').style.display = 'block';
+        
+        // Chỉ System mới thấy khung cài đặt
+        if (role === 'system') document.getElementById('systemSettingsPanel').style.display = 'block';
+        
         await loadFbTeams();
         loadAllFbLeads();
     }
@@ -234,6 +251,117 @@ async function initFbLeadsModule() {
     await fetchFbMembersCache();
     await loadMyFbLeads();
     setInterval(updateCountdowns, 60000); 
+}
+  // ==========================================
+// QUẢN LÝ CẤU HÌNH HỆ THỐNG (SYSTEM SETTINGS)
+// ==========================================
+async function loadFbSettings() {
+    const { data, error } = await window.sbClient.from('fbleads_settings').select('*').eq('id', 1).single();
+    if (data) {
+        globalFbSettings = data;
+        
+        // 1. Render UI cho Modal Báo Cáo của Sales
+        renderDynamicReportModal(data.keep_options);
+
+        // 2. Điền dữ liệu vào Bảng Cấu Hình của System
+        if (window.currentUser.role === 'system') {
+            document.getElementById('settingAutoRevoke').value = data.auto_revoke_minutes;
+            const container = document.getElementById('keepOptionsContainer');
+            container.innerHTML = '';
+            
+            data.keep_options.forEach((opt, idx) => {
+                container.appendChild(createKeepOptionRow(opt.label, opt.minutes));
+            });
+        }
+    }
+}
+
+function createKeepOptionRow(label = '', minutes = '') {
+    const row = document.createElement('div');
+    row.className = 'd-flex gap-2 align-items-center keep-option-row';
+    row.innerHTML = `
+        <input type="text" class="form-control fw-medium opt-label" placeholder="Tên hiển thị (VD: Giữ 3 ngày)" value="${label}">
+        <input type="number" class="form-control fw-bold opt-minutes text-primary" placeholder="Số phút" value="${minutes}" style="width: 150px;">
+        <button class="btn btn-icon btn-outline-danger border-0" onclick="this.parentElement.remove()"><i class="ti ti-trash"></i></button>
+    `;
+    return row;
+}
+
+function addKeepOptionRow() {
+    document.getElementById('keepOptionsContainer').appendChild(createKeepOptionRow());
+}
+
+async function saveFbSettings() {
+    const autoRevoke = document.getElementById('settingAutoRevoke').value;
+    const rows = document.querySelectorAll('.keep-option-row');
+    const newOptions = [];
+    
+    rows.forEach(row => {
+        const label = row.querySelector('.opt-label').value.trim();
+        const minutes = parseInt(row.querySelector('.opt-minutes').value);
+        if (label && minutes) {
+            newOptions.push({ label: label, minutes: minutes });
+        }
+    });
+
+    if (newOptions.length === 0) {
+        Swal.fire('Lỗi', 'Phải có ít nhất 1 mốc thời gian giữ lại!', 'error'); return;
+    }
+
+    Swal.fire({ title: 'Đang lưu cấu hình...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    const { error } = await window.sbClient.from('fbleads_settings').update({
+        auto_revoke_minutes: parseInt(autoRevoke),
+        keep_options: newOptions,
+        updated_at: new Date().toISOString()
+    }).eq('id', 1);
+
+    if (error) {
+        Swal.fire('Lỗi Database', error.message, 'error');
+    } else {
+        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã cập nhật hệ thống', showConfirmButton: false, timer: 1500 });
+        await loadFbSettings(); // Tải lại để áp dụng ngay
+    }
+}
+
+// Hàm render radio button động vào Modal Báo cáo
+function renderDynamicReportModal(optionsArray) {
+    const container = document.getElementById('dynamicReportOptions');
+    
+    // Mặc định luôn có nút Bỏ Qua ở đầu tiên
+    let html = `
+        <label class="form-selectgroup-item flex-fill">
+            <input type="radio" name="reportAction" value="reject" data-minutes="0" class="form-selectgroup-input" checked>
+            <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
+                <div class="me-3"><i class="ti ti-ban fs-1 text-danger"></i></div>
+                <div class="text-start">
+                    <div class="fw-bold text-danger fs-4 mb-1">Bỏ qua (Giải phóng Data)</div>
+                    <div class="text-muted" style="font-size:12px;">Khách không nhu cầu hoặc sai số. Trả lại hệ thống.</div>
+                </div>
+            </div>
+        </label>
+    `;
+
+    // Render các mốc thời gian từ DB
+    const colors = ['primary', 'info', 'warning', 'success']; // Tạo màu sắc linh hoạt
+    
+    optionsArray.forEach((opt, idx) => {
+        const color = colors[idx % colors.length];
+        html += `
+        <label class="form-selectgroup-item flex-fill">
+            <input type="radio" name="reportAction" value="keep" data-minutes="${opt.minutes}" class="form-selectgroup-input">
+            <div class="form-selectgroup-label d-flex align-items-center p-3 rounded-3">
+                <div class="me-3"><i class="ti ti-clock-hour-4 fs-1 text-${color}"></i></div>
+                <div class="text-start">
+                    <div class="fw-bold text-${color} fs-4 mb-1">${opt.label}</div>
+                    <div class="text-muted" style="font-size:12px;">Giữ quyền ưu tiên chăm sóc trong ${opt.minutes} phút tiếp theo.</div>
+                </div>
+            </div>
+        </label>
+        `;
+    });
+    
+    container.innerHTML = html;
 }
 
 // LẤY DANH SÁCH NHÂN SỰ TOÀN HỆ THỐNG
@@ -457,14 +585,19 @@ function openReportModal(leadId) {
     fakeBtn.remove();
 }
 
+// TÌM HÀM NÀY VÀ THAY THẾ TOÀN BỘ NỘI DUNG BÊN TRONG
 async function submitFbReport() {
     const leadId = document.getElementById('reportLeadId').value;
-    const action = document.querySelector('input[name="reportAction"]:checked').value;
-    const notes = document.getElementById('reportNotes').value.trim();
     
+    // Lấy radio đang được chọn
+    const selectedRadio = document.querySelector('input[name="reportAction"]:checked');
+    const action = selectedRadio.value; // 'reject' hoặc 'keep'
+    const minutesToKeep = parseInt(selectedRadio.getAttribute('data-minutes')); // Lấy số phút động
+    const actionLabel = selectedRadio.parentElement.querySelector('.fw-bold').innerText; // Lấy tên Label để lưu log
+    
+    const notes = document.getElementById('reportNotes').value.trim();
     if (!notes) { Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); return; }
     
-    // Đóng Modal an toàn
     const closeBtn = document.querySelector('#modal-fb-report .btn-close');
     if (closeBtn) closeBtn.click();
     
@@ -474,33 +607,28 @@ async function submitFbReport() {
         const vnTime = new Date().toISOString();
         const myId = window.currentUser.id;
 
-        // Lưu log tĩnh vào bảng
-        await window.sbClient.from('fbleads_care_logs').insert([{ lead_id: leadId, member_id: myId, action: action, content: notes, created_at: vnTime }]);
+        // Lưu log (Lưu luôn cả actionLabel để biết nhân viên chọn mốc nào)
+        await window.sbClient.from('fbleads_care_logs').insert([{ 
+            lead_id: leadId, member_id: myId, action: actionLabel, content: notes, created_at: vnTime 
+        }]);
 
         if (action === 'reject') {
-            // GỌI HÀM RPC ĐỂ TỰ ĐỘNG LUÂN CHUYỂN NGAY CHO SALES TIẾP THEO
-            await window.sbClient.rpc('process_fblead_reject', {
-                p_lead_id: leadId,
-                p_sales_id: myId,
-                p_reason: notes
-            });
-            
-            // Ghi logs chuyển
+            await window.sbClient.rpc('process_fblead_reject', { p_lead_id: leadId, p_sales_id: myId, p_reason: notes });
             await window.sbClient.from('fbleads_transfer_logs').insert([{ lead_id: leadId, from_member_id: myId, reason: 'Bỏ qua: ' + notes }]);
-            
         } else {
-            // Giữ lại -> Chỉ tịnh tiến thời gian hạn chót
-            let hours = (action === 'keep_72') ? 72 : (action === 'keep_12' ? 12 : 1);
-            const newDeadline = new Date(new Date().getTime() + hours * 60 * 60 * 1000).toISOString();
+            // TỊNH TIẾN DEADLINE DỰA TRÊN SỐ PHÚT CẤU HÌNH ĐỘNG TỪ DATABASE
+            const newDeadline = new Date(new Date().getTime() + minutesToKeep * 60 * 1000).toISOString();
             
             await window.sbClient.from('fbleads_data').update({ 
-                retention_deadline: newDeadline, lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', updated_at: vnTime
+                retention_deadline: newDeadline, 
+                lead_status: 'Processing', 
+                updated_at: vnTime
             }).eq('id', leadId);
         }
         
         Swal.fire({ icon:'success', title:'Thành công', showConfirmButton: false, timer: 1500 });
         loadMyFbLeads();
-    } catch(e) { Swal.fire('Lỗi', e.message, 'error'); }
+    } catch(e) { Swal.fire('Lỗi Database', e.message, 'error'); }
 }
 
 // ==========================================
