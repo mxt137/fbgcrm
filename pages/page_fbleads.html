@@ -426,11 +426,23 @@ function updateCountdowns() {
     });
 }
 
+// ========================================================
+// THAY THẾ 2 HÀM NÀY ĐỂ FIX LỖI MODAL BÁO CÁO
+// ========================================================
+
 function openReportModal(leadId) {
     document.getElementById('reportLeadId').value = leadId;
     document.getElementById('reportNotes').value = '';
+    // Reset về radio Bỏ qua cho an toàn
     document.querySelector('input[name="reportAction"][value="reject"]').checked = true;
-    new bootstrap.Modal(document.getElementById('modal-fb-report')).show();
+    
+    // KHẮC PHỤC: Sử dụng cơ chế giả lập Click DOM thay vì gọi object Bootstrap
+    let fakeBtn = document.createElement('button');
+    fakeBtn.setAttribute('data-bs-toggle', 'modal');
+    fakeBtn.setAttribute('data-bs-target', '#modal-fb-report');
+    document.body.appendChild(fakeBtn);
+    fakeBtn.click();
+    fakeBtn.remove();
 }
 
 async function submitFbReport() {
@@ -438,38 +450,62 @@ async function submitFbReport() {
     const action = document.querySelector('input[name="reportAction"]:checked').value;
     const notes = document.getElementById('reportNotes').value.trim();
     
-    if (!notes) { Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); return; }
+    if (!notes) { 
+        Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); 
+        return; 
+    }
     
-    bootstrap.Modal.getInstance(document.getElementById('modal-fb-report')).hide();
+    // KHẮC PHỤC: Đóng Modal bằng cách click vào nút Close gốc trên UI
+    const closeBtn = document.querySelector('#modal-fb-report .btn-close');
+    if (closeBtn) closeBtn.click();
+    
     Swal.fire({ title: 'Đang lưu báo cáo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     try {
         const vnTime = new Date().toISOString();
         const myId = window.currentUser.id;
 
-        await window.sbClient.from('fbleads_care_logs').insert([{ lead_id: leadId, member_id: myId, action: action, content: notes, created_at: vnTime }]);
+        // 1. Lưu nội dung báo cáo
+        await window.sbClient.from('fbleads_care_logs').insert([{ 
+            lead_id: leadId, 
+            member_id: myId, 
+            action: action, 
+            content: notes, 
+            created_at: vnTime 
+        }]);
 
         if (action === 'reject') {
-            // Nhả số cho vòng quay
+            // 2. NHÁNH BỎ QUA: Tước số và lưu logs luân chuyển
             await window.sbClient.from('fbleads_data').update({ 
-                assigned_to: null, is_transferred: true, lead_status: 'Transferred', updated_at: vnTime 
+                assigned_to: null, 
+                is_transferred: true, 
+                lead_status: 'Transferred', 
+                updated_at: vnTime 
             }).eq('id', leadId);
             
-            await window.sbClient.from('fbleads_transfer_logs').insert([{ lead_id: leadId, from_member_id: myId, reason: 'Bỏ qua: ' + notes }]);
+            await window.sbClient.from('fbleads_transfer_logs').insert([{ 
+                lead_id: leadId, 
+                from_member_id: myId, 
+                reason: 'Bỏ qua: ' + notes 
+            }]);
             
         } else {
-            // Tịnh tiến Deadline
-            let hours = (action === 'keep_72') ? 72 : 1;
+            // 3. NHÁNH GIỮ LẠI: Tịnh tiến Deadline theo lựa chọn
+            let hours = (action === 'keep_72') ? 72 : (action === 'keep_12' ? 12 : 1);
             const newDeadline = new Date(new Date().getTime() + hours * 60 * 60 * 1000).toISOString();
             
             await window.sbClient.from('fbleads_data').update({ 
-                retention_deadline: newDeadline, lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', updated_at: vnTime
+                retention_deadline: newDeadline, 
+                lead_status: (action === 'keep_72') ? 'Potential' : 'Processing', 
+                updated_at: vnTime
             }).eq('id', leadId);
         }
         
         Swal.fire({ icon:'success', title:'Thành công', showConfirmButton: false, timer: 1500 });
         loadMyFbLeads();
-    } catch(e) { Swal.fire('Lỗi', e.message, 'error'); }
+    } catch(e) { 
+        Swal.fire('Lỗi Database', e.message, 'error'); 
+    }
 }
 
 // ==========================================
