@@ -230,17 +230,15 @@ let currentAvailableMembers = [];
 let allFbTeams = []; // Cache danh sách team cho tính năng Test
 let globalFbSettings = null; // Lưu cấu hình hệ thống
 
-  // HÀM KHỞI TẠO MODULE
-  async function initFbLeadsModule() {
+// HÀM KHỞI TẠO MODULE
+async function initFbLeadsModule() {
     const role = window.currentUser.role;
-    
     await loadFbSettings();
 
     if (role === 'system' || role === 'admin') {
         document.getElementById('navTeamManagement').style.display = 'block';
         document.getElementById('navSystemMonitor').style.display = 'block';
         if (role === 'system') document.getElementById('systemSettingsPanel').style.display = 'block';
-        
         await loadFbTeams();
         loadAllFbLeads();
     }
@@ -249,36 +247,28 @@ let globalFbSettings = null; // Lưu cấu hình hệ thống
     await loadMyFbLeads();
 
     // ==========================================
-    // KHỞI CHẠY TIẾN TRÌNH CHẠY NGẦM (BACKGROUND WORKER)
+    // TIẾN TRÌNH CHẠY NGẦM QUÉT DATA QUÁ HẠN
     // ==========================================
     setInterval(async () => {
-        // 1. Cập nhật giao diện đếm ngược trên màn hình
         updateCountdowns();
-        
-        // 2. Gọi hàm RPC dọn dẹp Data quá hạn
         if (window.currentUser) {
-            // Lệnh này cực nhẹ, chỉ quét những dòng quá hạn, không tốn tài nguyên
-            await window.sbClient.rpc('sweep_expired_fbleads');
-            
-            // Nếu là Admin/System đang mở Tab Giám Sát, tự động Refresh bảng để thấy số nhảy
-            if (role === 'system' || role === 'admin') {
+            try {
+                // Gọi "Máy hút bụi" tước số
+                await window.sbClient.rpc('sweep_expired_fbleads');
+                
+                // MỞ KHÓA: Bất kể là System hay Sales, Tab nào đang mở thì làm mới Tab đó
                 const monitorTab = document.getElementById('tabs-monitor');
-                if (monitorTab && monitorTab.classList.contains('active')) {
-                    loadAllFbLeads();
-                }
-            }
-            
-            // Nếu là Sales đang mở Tab Data, tự động Refresh để làm biến mất số bị tước
-            if (role === 'sales' || role === 'manager') {
+                if (monitorTab && monitorTab.classList.contains('active')) loadAllFbLeads();
+                
                 const myLeadsTab = document.getElementById('tabs-myleads');
-                if (myLeadsTab && myLeadsTab.classList.contains('active')) {
-                    loadMyFbLeads();
-                }
-            }
+                if (myLeadsTab && myLeadsTab.classList.contains('active')) loadMyFbLeads();
+
+            } catch (e) { console.error('Lỗi Background Worker:', e); }
         }
-    }, 60000); // 60000ms = 60 giây chạy 1 lần
+    }, 60000); 
 }
-  // ==========================================
+  
+// ==========================================
 // QUẢN LÝ CẤU HÌNH HỆ THỐNG (SYSTEM SETTINGS)
 // ==========================================
 async function loadFbSettings() {
@@ -432,15 +422,16 @@ async function triggerAutoAssign() {
     Swal.fire({ title: 'Đang chạy thuật toán Round-Robin...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
+        // Lấy tất cả Data chưa có chủ (Gồm cả New và Pending bị rớt lại)
         const { data: leads, error: e1 } = await window.sbClient.from('fbleads_data')
-            .select('id, assigned_team').eq('lead_status', 'New').is('assigned_to', null);
+            .select('id, assigned_team, rejected_by')
+            .is('assigned_to', null)
+            .neq('lead_status', 'Rác');
         
         if (e1) throw e1;
         if (!leads || leads.length === 0) { Swal.fire('Thông báo', 'Không có Data nào đang trống chủ để phân bổ.', 'info'); return; }
 
         let assignedCount = 0;
-        
-        // Lấy số phút thu hồi từ bảng Setting (Mặc định 15 phút nếu chưa có)
         const revokeMins = globalFbSettings ? globalFbSettings.auto_revoke_minutes : 15;
 
         for (let lead of leads) {
@@ -451,23 +442,23 @@ async function triggerAutoAssign() {
                 .eq('team_id', lead.assigned_team)
                 .eq('is_active', true)
                 .order('round_number', { ascending: true })
-                .order('last_received_at', { ascending: true, nullsFirst: true })
-                .limit(1);
+                .order('last_received_at', { ascending: true, nullsFirst: true });
 
             if (e2 || !members || members.length === 0) continue; 
-
-            const targetSales = members[0];
-            const vnTime = new Date().getTime();
             
-            // TÍNH TOÁN HẠN CHÓT (DEADLINE) BAN ĐẦU DỰA TRÊN SETTINGS
+            // Loại bỏ những Sales đã từng từ chối (Nằm trong Blacklist)
+            const validMembers = members.filter(m => !(lead.rejected_by || []).includes(m.member_id));
+            if (validMembers.length === 0) continue;
+
+            const targetSales = validMembers[0];
+            const vnTime = new Date().getTime();
             const initialDeadline = new Date(vnTime + revokeMins * 60000).toISOString();
 
-            // Cập nhật Lead cho Sales này KÈM THEO retention_deadline
             await window.sbClient.from('fbleads_data').update({
                 assigned_to: targetSales.member_id,
                 assigned_at: new Date(vnTime).toISOString(),
                 retention_deadline: initialDeadline,
-                lead_status: 'Processing' // Đổi thành Processing để bắt đầu đếm giờ
+                lead_status: 'Processing' 
             }).eq('id', lead.id);
 
             await window.sbClient.from('fbleads_team_members').update({
@@ -805,7 +796,14 @@ async function loadAllFbLeads() {
 }
 
 async function forceRevokeLead(leadId) {
-    await window.sbClient.from('fbleads_data').update({ assigned_to: null, is_transferred: true, lead_status: 'Revoked' }).eq('id', leadId);
+    // Reset retention_deadline về rỗng để hiển thị "Chưa áp dụng" thay vì kẹt giờ
+    await window.sbClient.from('fbleads_data').update({ 
+        assigned_to: null, 
+        is_transferred: true, 
+        lead_status: 'Revoked',
+        retention_deadline: null 
+    }).eq('id', leadId);
+    
     Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thu hồi số', showConfirmButton: false, timer: 1500});
     loadAllFbLeads();
 }
