@@ -229,6 +229,7 @@ let currentSelectedTeam = null;
 let currentAvailableMembers = [];
 let allFbTeams = []; // Cache danh sách team cho tính năng Test
 let globalFbSettings = null; // Lưu cấu hình hệ thống
+let isForceSweeping = false; // Biến cờ ngăn chặn việc gọi API dồn dập
 
 // HÀM KHỞI TẠO MODULE
 async function initFbLeadsModule() {
@@ -524,11 +525,11 @@ async function loadMyFbLeads() {
     }
 
     container.innerHTML = '';
+    // TÌM ĐẾN ĐOẠN NÀY TRONG HÀM loadMyFbLeads() VÀ THAY THẾ
     data.forEach((lead, index) => {
-        let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}">Đang tính toán...</span>`;
+        let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}" data-leadid="${lead.id}">Đang tính toán...</span>`;
         const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
         
-        // BỔ SUNG LỊCH SỬ SALES TRƯỚC ĐÓ TỪ CHỐI
         let historyHtml = '';
         if (lead.report_history && lead.report_history.length > 0) {
             let hItems = lead.report_history.map((h, i) => 
@@ -565,11 +566,12 @@ async function loadMyFbLeads() {
                     ${historyHtml}
                 </div>
                 
-                <div class="mt-auto pt-3 d-flex gap-2 border-top">
-                    <a href="tel:${lead.phone}" class="btn btn-outline-success fw-bold flex-grow-1" style="border-radius: 8px;">
+                <!-- THÊM CLASS action-group VÀ ID CHO CÁC NÚT -->
+                <div class="mt-auto pt-3 d-flex gap-2 border-top action-group" id="action-group-${lead.id}">
+                    <a href="tel:${lead.phone}" class="btn btn-outline-success fw-bold flex-grow-1" style="border-radius: 8px;" id="btn-call-${lead.id}">
                         <i class="ti ti-phone me-1 fs-3"></i> Tương tác
                     </a>
-                    <button class="btn text-white fw-bold flex-grow-1 shadow-sm" style="background: #146654; border-radius: 8px;" onclick="openReportModal('${lead.id}')">
+                    <button class="btn text-white fw-bold flex-grow-1 shadow-sm" style="background: #146654; border-radius: 8px;" onclick="openReportModal('${lead.id}')" id="btn-report-${lead.id}">
                         <i class="ti ti-clipboard-check me-1 fs-3"></i> Báo Cáo
                     </button>
                 </div>
@@ -580,12 +582,15 @@ async function loadMyFbLeads() {
     updateCountdowns();
 }
 
-function updateCountdowns() {
+async function updateCountdowns() {
     const timers = document.querySelectorAll('.fb-timer');
     const now = new Date().getTime();
+    let needImmediateSweep = false;
     
     timers.forEach(el => {
         const deadlineStr = el.getAttribute('data-deadline');
+        const leadId = el.getAttribute('data-leadid');
+        
         if (!deadlineStr || deadlineStr === "null") {
             el.innerHTML = '<i class="ti ti-infinity"></i> Chưa báo cáo';
             el.className = 'badge bg-secondary-lt fw-bold fb-timer px-2 py-1';
@@ -595,14 +600,22 @@ function updateCountdowns() {
         const deadline = new Date(deadlineStr).getTime();
         const diff = deadline - now;
         
-        // Nếu đã lố giờ (Âm) HOẶC còn dưới 0 phút
         if (diff <= 0) {
             el.innerHTML = '<i class="ti ti-alert-triangle me-1"></i> Đang thu hồi...';
             el.className = 'badge bg-dark text-white fw-bold fb-timer px-2 py-1 shadow-sm pulse-animation';
+            
+            // 1. KHÓA TỨC THÌ CÁC NÚT BẤM TRÊN GIAO DIỆN
+            const callBtn = document.getElementById(`btn-call-${leadId}`);
+            const reportBtn = document.getElementById(`btn-report-${leadId}`);
+            if (callBtn) callBtn.classList.add('disabled');
+            if (reportBtn) reportBtn.disabled = true;
+
+            // 2. KÍCH HOẠT CỜ ÉP QUÉT
+            needImmediateSweep = true;
+
         } else {
             const minutes = Math.floor(diff / 60000);
             if (minutes < 60) {
-                // Đổi màu cảnh báo Đỏ khi chỉ còn dưới 3 phút
                 if (minutes <= 3) {
                     el.innerHTML = `<i class="ti ti-hourglass-empty me-1"></i> Còn ${minutes} phút`;
                     el.className = 'badge bg-danger text-white fw-bold fb-timer px-2 py-1 pulse-animation shadow-sm';
@@ -617,6 +630,20 @@ function updateCountdowns() {
             }
         }
     });
+
+    // 3. NẾU CÓ DATA QUÁ HẠN -> GỌI RPC THU HỒI NGAY LẬP TỨC
+    if (needImmediateSweep && !isForceSweeping) {
+        isForceSweeping = true;
+        try {
+            const { data: revokedCount } = await window.sbClient.rpc('sweep_expired_fbleads');
+            if (revokedCount > 0) {
+                Swal.fire({ toast: true, position: 'bottom-end', icon: 'warning', title: 'Hệ thống vừa thu hồi Data quá hạn!', showConfirmButton: false, timer: 3000 });
+                loadMyFbLeads();
+                if (document.getElementById('tabs-monitor')?.classList.contains('active')) loadAllFbLeads();
+            }
+        } catch (e) { console.error('Force Sweep Error:', e); } 
+        finally { isForceSweeping = false; }
+    }
 }
 
 // ========================================================
@@ -641,41 +668,42 @@ function openReportModal(leadId) {
 // TÌM HÀM NÀY VÀ THAY THẾ TOÀN BỘ NỘI DUNG BÊN TRONG
 async function submitFbReport() {
     const leadId = document.getElementById('reportLeadId').value;
-    
-    // Lấy radio đang được chọn
     const selectedRadio = document.querySelector('input[name="reportAction"]:checked');
-    const action = selectedRadio.value; // 'reject' hoặc 'keep'
-    const minutesToKeep = parseInt(selectedRadio.getAttribute('data-minutes')); // Lấy số phút động
-    const actionLabel = selectedRadio.parentElement.querySelector('.fw-bold').innerText; // Lấy tên Label để lưu log
-    
+    const action = selectedRadio.value; 
+    const minutesToKeep = parseInt(selectedRadio.getAttribute('data-minutes')); 
+    const actionLabel = selectedRadio.parentElement.querySelector('.fw-bold').innerText; 
     const notes = document.getElementById('reportNotes').value.trim();
+    
     if (!notes) { Swal.fire('Thiếu thông tin', 'Vui lòng nhập ghi chú chi tiết!', 'warning'); return; }
     
+    // Đóng Modal an toàn
     const closeBtn = document.querySelector('#modal-fb-report .btn-close');
     if (closeBtn) closeBtn.click();
     
-    Swal.fire({ title: 'Đang lưu báo cáo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Đang xử lý...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     try {
         const vnTime = new Date().toISOString();
         const myId = window.currentUser.id;
 
-        // Lưu log (Lưu luôn cả actionLabel để biết nhân viên chọn mốc nào)
-        await window.sbClient.from('fbleads_care_logs').insert([{ 
-            lead_id: leadId, member_id: myId, action: actionLabel, content: notes, created_at: vnTime 
-        }]);
+        // BỨC TƯỜNG SERVER: Kiểm tra xem Data này đã bị tước chưa trước khi cho phép báo cáo
+        const { data: checkLead } = await window.sbClient.from('fbleads_data').select('retention_deadline, assigned_to').eq('id', leadId).single();
+        if (!checkLead || checkLead.assigned_to !== myId || (checkLead.retention_deadline && new Date(checkLead.retention_deadline).getTime() < new Date().getTime())) {
+             Swal.fire('Thất bại', 'Data này đã quá hạn và bị hệ thống tự động thu hồi!', 'error');
+             loadMyFbLeads();
+             return;
+        }
+
+        // Qua ải kiểm tra -> Tiến hành lưu
+        await window.sbClient.from('fbleads_care_logs').insert([{ lead_id: leadId, member_id: myId, action: actionLabel, content: notes, created_at: vnTime }]);
 
         if (action === 'reject') {
             await window.sbClient.rpc('process_fblead_reject', { p_lead_id: leadId, p_sales_id: myId, p_reason: notes });
             await window.sbClient.from('fbleads_transfer_logs').insert([{ lead_id: leadId, from_member_id: myId, reason: 'Bỏ qua: ' + notes }]);
         } else {
-            // TỊNH TIẾN DEADLINE DỰA TRÊN SỐ PHÚT CẤU HÌNH ĐỘNG TỪ DATABASE
             const newDeadline = new Date(new Date().getTime() + minutesToKeep * 60 * 1000).toISOString();
-            
             await window.sbClient.from('fbleads_data').update({ 
-                retention_deadline: newDeadline, 
-                lead_status: 'Processing', 
-                updated_at: vnTime
+                retention_deadline: newDeadline, lead_status: 'Processing', updated_at: vnTime
             }).eq('id', leadId);
         }
         
