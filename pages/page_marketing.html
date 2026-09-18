@@ -429,7 +429,8 @@
       
       let historyHtml = '';
       if (lead.report_history && lead.report_history.length > 0) {
-          historyHtml = '<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">' + lead.report_history.join(' ➔ ') + '</span></div>';
+          //historyHtml = '<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">' + lead.report_history.join(' ➔ ') + '</span></div>';
+          historyHtml = '<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">Gọi đi xem gì?</span></div>';
       }
 
       const loopCount = (lead.attempt_count || 0) + 1;
