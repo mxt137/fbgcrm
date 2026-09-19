@@ -114,17 +114,24 @@
   </div>
   <div class="card-body">
     <div class="row g-4">
-      <!-- Cài đặt tự động thu hồi -->
+      <!-- Cột 1: Giờ hoạt động tự động -->
       <div class="col-md-4 border-end">
-        <label class="form-label fw-bold text-dark">Thời gian chờ tối đa (Auto-Revoke)</label>
-        <div class="text-muted mb-2" style="font-size: 11px;">Nếu Sales không thao tác báo cáo sau khi nhận, hệ thống sẽ tự động tước số trả về kho.</div>
+        <label class="form-label fw-bold text-dark">Khung Giờ Rót Số (Tự Động)</label>
+        <div class="text-muted mb-3" style="font-size: 11px;">Ngoài khung giờ này, Data đổ về sẽ được cất vào kho để tránh lố hạn của Sales đang nghỉ.</div>
+        <div class="d-flex gap-2 align-items-center mb-3">
+            <input type="time" id="settingWorkStart" class="form-control fw-bold" style="text-align: center;">
+            <span class="fw-bold text-muted">đến</span>
+            <input type="time" id="settingWorkEnd" class="form-control fw-bold" style="text-align: center;">
+        </div>
+        
+        <label class="form-label fw-bold text-dark">Thu hồi (Auto-Revoke)</label>
         <div class="input-group">
           <input type="number" id="settingAutoRevoke" class="form-control fw-bold text-danger" min="1" placeholder="VD: 15">
           <span class="input-group-text fw-bold">Phút</span>
         </div>
       </div>
       
-      <!-- Cài đặt các mốc Giữ Lại -->
+      <!-- Cột 2: Cài đặt các mốc Giữ Lại (Giữ nguyên code cũ) -->
       <div class="col-md-8">
         <label class="form-label fw-bold text-dark d-flex justify-content-between">
           <span>Các mốc thời gian "Giữ lại" (Dành cho Sales)</span>
@@ -136,7 +143,7 @@
           <!-- JS sẽ render các ô input vào đây -->
         </div>
       </div>
-    </div>
+    </div>    
   </div>
   <div class="card-footer bg-white text-end border-top">
     <button class="btn text-white fw-bold shadow-sm" style="background: #146654;" onclick="saveFbSettings()">
@@ -301,17 +308,24 @@ async function initFbLeadsModule() {
     await loadMyFbLeads();
 
     setInterval(async () => {
-        // Gọi updateCountdowns() xử lý UI. Nếu có Data = 0, nó sẽ tự động kích hoạt Sweep.
         updateCountdowns();
         
-        // Vòng lặp ngầm: Quét phòng trường hợp Sales thu nhỏ trình duyệt
         if (window.currentUser && !isForceSweeping) {
             isForceSweeping = true;
             try {
-                const { data: revokedCount } = await window.sbClient.rpc('sweep_expired_fbleads');
-                if (revokedCount > 0) {
+                // TỰ ĐỘNG: Vừa dọn rác, Vừa phân bổ data tồn đọng sau 1 đêm
+                const { data: result } = await window.sbClient.rpc('sweep_and_assign_fbleads');
+                
+                if (result && (result.revoked > 0 || result.assigned > 0)) {
                     if (document.getElementById('tabs-monitor')?.classList.contains('active')) loadAllFbLeads();
-                    if (document.getElementById('tabs-myleads')?.classList.contains('active')) loadMyFbLeads();
+                    
+                    if (document.getElementById('tabs-myleads')?.classList.contains('active')) {
+                        // Báo cho Sales biết có Data mới rớt xuống
+                        if (result.assigned > 0) {
+                             Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Bạn vừa nhận được Data mới!', showConfirmButton: false, timer: 4000 });
+                        }
+                        loadMyFbLeads();
+                    }
                 }
             } catch (e) {} finally { isForceSweeping = false; }
         }
@@ -325,17 +339,16 @@ async function loadFbSettings() {
     const { data, error } = await window.sbClient.from('fbleads_settings').select('*').eq('id', 1).single();
     if (data) {
         globalFbSettings = data;
-        
-        // 1. Render UI cho Modal Báo Cáo của Sales
         renderDynamicReportModal(data.keep_options);
 
-        // 2. Điền dữ liệu vào Bảng Cấu Hình của System
         if (window.currentUser.role === 'system') {
+            document.getElementById('settingWorkStart').value = data.work_time_start.substring(0, 5);
+            document.getElementById('settingWorkEnd').value = data.work_time_end.substring(0, 5);
             document.getElementById('settingAutoRevoke').value = data.auto_revoke_minutes;
+            
             const container = document.getElementById('keepOptionsContainer');
             container.innerHTML = '';
-            
-            data.keep_options.forEach((opt, idx) => {
+            data.keep_options.forEach(opt => {
                 container.appendChild(createKeepOptionRow(opt.label, opt.minutes));
             });
         }
@@ -358,6 +371,8 @@ function addKeepOptionRow() {
 }
 
 async function saveFbSettings() {
+    const workStart = document.getElementById('settingWorkStart').value;
+    const workEnd = document.getElementById('settingWorkEnd').value;
     const autoRevoke = document.getElementById('settingAutoRevoke').value;
     const rows = document.querySelectorAll('.keep-option-row');
     const newOptions = [];
@@ -365,28 +380,25 @@ async function saveFbSettings() {
     rows.forEach(row => {
         const label = row.querySelector('.opt-label').value.trim();
         const minutes = parseInt(row.querySelector('.opt-minutes').value);
-        if (label && minutes) {
-            newOptions.push({ label: label, minutes: minutes });
-        }
+        if (label && minutes) newOptions.push({ label: label, minutes: minutes });
     });
 
-    if (newOptions.length === 0) {
-        Swal.fire('Lỗi', 'Phải có ít nhất 1 mốc thời gian giữ lại!', 'error'); return;
-    }
+    if (newOptions.length === 0) { Swal.fire('Lỗi', 'Phải có ít nhất 1 mốc thời gian giữ lại!', 'error'); return; }
 
-    Swal.fire({ title: 'Đang lưu cấu hình...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Đang lưu...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const { error } = await window.sbClient.from('fbleads_settings').update({
+        work_time_start: workStart + ':00',
+        work_time_end: workEnd + ':00',
         auto_revoke_minutes: parseInt(autoRevoke),
         keep_options: newOptions,
         updated_at: new Date().toISOString()
     }).eq('id', 1);
 
-    if (error) {
-        Swal.fire('Lỗi Database', error.message, 'error');
-    } else {
+    if (error) Swal.fire('Lỗi DB', error.message, 'error');
+    else {
         Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã cập nhật hệ thống', showConfirmButton: false, timer: 1500 });
-        await loadFbSettings(); // Tải lại để áp dụng ngay
+        await loadFbSettings();
     }
 }
 
@@ -468,63 +480,16 @@ async function generateDummyLeads() {
     loadAllFbLeads();
 }
 
+// Ghi đè hàm triggerAutoAssign cũ bằng việc gọi thẳng RPC mới
 async function triggerAutoAssign() {
-    Swal.fire({ title: 'Đang chạy thuật toán Round-Robin...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
+    Swal.fire({ title: 'Đang chạy thuật toán tự động...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-        // Lấy tất cả Data chưa có chủ (Gồm cả New và Pending bị rớt lại)
-        const { data: leads, error: e1 } = await window.sbClient.from('fbleads_data')
-            .select('id, assigned_team, rejected_by')
-            .is('assigned_to', null)
-            .neq('lead_status', 'Rác');
+        const { data: result, error } = await window.sbClient.rpc('sweep_and_assign_fbleads');
+        if (error) throw error;
         
-        if (e1) throw e1;
-        if (!leads || leads.length === 0) { Swal.fire('Thông báo', 'Không có Data nào đang trống chủ để phân bổ.', 'info'); return; }
-
-        let assignedCount = 0;
-        const revokeMins = globalFbSettings ? globalFbSettings.auto_revoke_minutes : 15;
-
-        for (let lead of leads) {
-            if (!lead.assigned_team) continue;
-
-            const { data: members, error: e2 } = await window.sbClient.from('fbleads_team_members')
-                .select('member_id, round_number, last_received_at')
-                .eq('team_id', lead.assigned_team)
-                .eq('is_active', true)
-                .order('round_number', { ascending: true })
-                .order('last_received_at', { ascending: true, nullsFirst: true });
-
-            if (e2 || !members || members.length === 0) continue; 
-            
-            // Loại bỏ những Sales đã từng từ chối (Nằm trong Blacklist)
-            const validMembers = members.filter(m => !(lead.rejected_by || []).includes(m.member_id));
-            if (validMembers.length === 0) continue;
-
-            const targetSales = validMembers[0];
-            const vnTime = new Date().getTime();
-            const initialDeadline = new Date(vnTime + revokeMins * 60000).toISOString();
-
-            await window.sbClient.from('fbleads_data').update({
-                assigned_to: targetSales.member_id,
-                assigned_at: new Date(vnTime).toISOString(),
-                retention_deadline: initialDeadline,
-                lead_status: 'Processing' 
-            }).eq('id', lead.id);
-
-            await window.sbClient.from('fbleads_team_members').update({
-                round_number: (targetSales.round_number || 0) + 1,
-                last_received_at: new Date(vnTime).toISOString()
-            }).match({ team_id: lead.assigned_team, member_id: targetSales.member_id });
-
-            assignedCount++;
-        }
-
-        Swal.fire('Hoàn tất', `Đã phân bổ thành công ${assignedCount} Lead. Hạn chót xử lý: ${revokeMins} phút.`, 'success');
+        Swal.fire('Hoàn tất', `Đã tự động thu hồi ${result.revoked} khách lố hạn và Phân bổ ${result.assigned} khách tồn đọng!`, 'success');
         loadAllFbLeads();
-
-    } catch (err) {
-        Swal.fire('Lỗi thuật toán', err.message, 'error');
-    }
+    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); }
 }
 
 // ==========================================
