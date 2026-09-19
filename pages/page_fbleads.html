@@ -244,12 +244,25 @@
       </div>
       <form onsubmit="event.preventDefault(); submitManualLead();">
           <div class="modal-body p-4 bg-white">
-             <div class="mb-3">
-                <label class="form-label fw-bold text-danger"><i class="ti ti-target me-1"></i>Chọn Nhóm (Dự án) phân bổ *</label>
-                <select id="manualLeadTeam" class="form-select form-select-lg fw-bold border-dark" required>
-                   <option value="">-- Đang tải dữ liệu nhóm... --</option>
-                </select>
+             <div class="row g-3 mb-3">
+                 <div class="col-md-6">
+                    <label class="form-label fw-bold text-danger"><i class="ti ti-target me-1"></i>Dự án phân bổ *</label>
+                    <select id="manualLeadTeam" class="form-select fw-bold border-dark" required>
+                       <option value="">-- Chọn Nhóm --</option>
+                    </select>
+                 </div>
+                 <div class="col-md-6">
+                    <label class="form-label fw-bold" style="color: #146654;"><i class="ti ti-magnet me-1"></i>Nguồn Khách *</label>
+                    <select id="manualLeadSource" class="form-select fw-bold border-dark" required>
+                       <option value="Hotline">📞 Gọi Hotline (Gấp)</option>
+                       <option value="Google Ads">🌐 Google Ads (Nhu cầu cao)</option>
+                       <option value="Zalo">💬 Nhắn tin Zalo</option>
+                       <option value="Facebook Ads">🔵 Facebook Ads</option>
+                       <option value="Nguồn Khác">Trực tiếp / Khác</option>
+                    </select>
+                 </div>
              </div>
+             
              <div class="mb-3">
                 <label class="form-label fw-bold text-dark"><i class="ti ti-phone me-1 text-success"></i>Số điện thoại *</label>
                 <input type="text" id="manualLeadPhone" class="form-control form-control-lg fw-bold text-dark" required placeholder="Nhập SĐT khách hàng...">
@@ -257,22 +270,22 @@
              <div class="row g-3 mb-3">
                  <div class="col-md-6">
                     <label class="form-label fw-medium text-muted">Tên khách hàng</label>
-                    <input type="text" id="manualLeadName" class="form-control fw-medium" placeholder="Tên khách (nếu có)...">
+                    <input type="text" id="manualLeadName" class="form-control fw-medium" placeholder="Tên khách...">
                  </div>
                  <div class="col-md-6">
                     <label class="form-label fw-medium text-muted">Thành phố</label>
-                    <input type="text" id="manualLeadCity" class="form-control fw-medium" placeholder="VD: Đà Nẵng, Hà Nội...">
+                    <input type="text" id="manualLeadCity" class="form-control fw-medium" placeholder="VD: Đà Nẵng...">
                  </div>
              </div>
              <div class="mb-2">
                 <label class="form-label fw-medium text-muted">Nhu cầu chi tiết</label>
-                <textarea id="manualLeadDemand" class="form-control fw-medium bg-light" rows="3" placeholder="Ghi chú về nhu cầu, khung giờ gọi (nếu có)..." style="resize: none;"></textarea>
+                <textarea id="manualLeadDemand" class="form-control fw-medium bg-light" rows="3" placeholder="Ghi chú về nhu cầu, lịch hẹn..." style="resize: none;"></textarea>
              </div>
           </div>
           <div class="modal-footer bg-light border-top">
             <button type="button" class="btn btn-link link-secondary fw-bold" data-bs-dismiss="modal">Hủy</button>
             <button type="submit" class="btn text-white fw-bold shadow-sm" style="background: #146654;">
-               <i class="ti ti-device-floppy me-2"></i> Lưu Data & Bơm vào Kho
+               <i class="ti ti-device-floppy me-2"></i> Lưu & Rót Số Ngay
             </button>
           </div>
       </form>
@@ -519,6 +532,16 @@ async function loadMyFbLeads() {
     data.forEach((lead, index) => {
         let timerHtml = `<span class="badge bg-green-lt fw-bold fb-timer px-2 py-1" data-deadline="${lead.retention_deadline}" data-leadid="${lead.id}">Đang tính toán...</span>`;
         const teamName = lead.fbleads_teams ? lead.fbleads_teams.name : 'Dự án chung';
+        const leadSource = lead.source || 'Facebook Ads';
+        
+        // Nếu là Hotline hoặc Google Ads -> Nhấp nháy màu đỏ/cam
+        let sourceBadge = '';
+        if (leadSource === 'Hotline' || leadSource === 'Google Ads') {
+             sourceBadge = `<span class="badge bg-red text-white pulse-animation ms-2"><i class="ti ti-bolt me-1"></i>${leadSource}</span>`;
+        } else {
+             sourceBadge = `<span class="badge bg-blue-lt ms-2"><i class="ti ti-magnet me-1"></i>${leadSource}</span>`;
+        }
+      
         
         let historyHtml = '';
         if (lead.report_history && lead.report_history.length > 0) {
@@ -539,10 +562,11 @@ async function loadMyFbLeads() {
                     ${timerHtml}
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 d-flex align-items-center flex-wrap">
                    <span class="badge" style="background: rgba(20, 102, 84, 0.1); color: #146654; font-size: 11px; padding: 6px 10px; border: 1px solid rgba(20, 102, 84, 0.2);">
-                      <i class="ti ti-building-skyscraper me-1"></i> Thuộc nhóm: ${teamName}
+                      <i class="ti ti-building-skyscraper me-1"></i> ${teamName}
                    </span>
+                   ${sourceBadge}
                 </div>
                 
                 <h3 class="fw-bold mb-1 fs-3 text-dark"><i class="ti ti-user-circle me-1 text-muted"></i> ${lead.customer_name || 'Khách hàng Ads'}</h3>
@@ -898,46 +922,42 @@ async function openManualLeadModal() {
 
 async function submitManualLead() {
     const teamId = document.getElementById('manualLeadTeam').value;
+    const source = document.getElementById('manualLeadSource').value;
     const phone = document.getElementById('manualLeadPhone').value.trim();
-    const name = document.getElementById('manualLeadName').value.trim() || 'Khách Nhập Thủ Công';
+    const name = document.getElementById('manualLeadName').value.trim() || 'Khách Mới';
     const city = document.getElementById('manualLeadCity').value.trim();
     const demand = document.getElementById('manualLeadDemand').value.trim();
     
-    if (!teamId || !phone) {
-        Swal.fire('Thiếu thông tin', 'Vui lòng điền số điện thoại và chọn Nhóm phân bổ!', 'warning');
-        return;
-    }
+    if (!teamId || !phone) { Swal.fire('Lỗi', 'Vui lòng nhập SĐT và Nhóm!', 'warning'); return; }
 
-    // Đóng Modal an toàn
-    const closeBtn = document.querySelector('#modal-manual-fblead .btn-close');
-    if (closeBtn) closeBtn.click();
+    document.querySelector('#modal-manual-fblead .btn-close')?.click();
+    Swal.fire({ title: 'Đang bơm Data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
-    Swal.fire({ title: 'Đang đẩy Data vào hệ thống...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
-    // Đóng gói dữ liệu. Thiết lập các tọa độ giả (dummy) để Webhook không bị lỗi khi tìm Sheet
+    // Gắn nhãn nhấn mạnh nếu là nguồn nóng
+    const urgencyPrefix = (source === 'Hotline' || source === 'Google Ads') ? '[VIP GẤP] ' : '';
+
     const payload = {
         customer_name: name,
         phone: phone,
         city: city || null,
-        demand: demand ? `[Hotline/Zalo] ${demand}` : '[Hotline/Zalo] Chưa có ghi chú',
+        demand: demand ? `${urgencyPrefix}${demand}` : `${urgencyPrefix}Cần hỗ trợ ngay`,
+        source: source, // Đẩy thẳng nguồn vào DB
         lead_status: 'New',
         assigned_team: teamId,
         satellite_sheet_id: 'Manual_Add_No_Sheet',
-        satellite_tab_name: 'Hotline_Zalo',
+        satellite_tab_name: source,
         satellite_row_index: 0
     };
 
     try {
         const { error } = await window.sbClient.from('fbleads_data').insert([payload]);
         if (error) throw error;
-
-        Swal.fire('Thành công', 'Đã bơm Data vào hệ thống thành công. Hãy bấm [Chạy Thuật Toán Phân Bổ] để rót số cho Sales.', 'success');
         
-        // Refresh lại bảng giám sát
+        // Data vừa rớt xuống, gọi luôn hàm Máy hút bụi & Rót số của Database
+        await window.sbClient.rpc('sweep_and_assign_fbleads');
+        
+        Swal.fire('Thành công', 'Data đã được thêm và hệ thống đang tự động phân bổ!', 'success');
         if (typeof loadAllFbLeads === 'function') loadAllFbLeads();
-        
-    } catch (err) {
-        Swal.fire('Lỗi Database', err.message, 'error');
-    }
+    } catch (err) { Swal.fire('Lỗi DB', err.message, 'error'); }
 }
 </script>
