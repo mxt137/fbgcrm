@@ -307,7 +307,7 @@
 
             let finalStatus = '';
             if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold px-2 py-1">WIN (Tiềm năng)</span>';
-            else if (lead.status === 'Hoàn thành' || (lead.attempt_count >= 5)) finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Loại bỏ)</span>';
+            else if (lead.status === 'Hoàn thành' || (lead.attempt_count >= 10)) finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Loại bỏ)</span>';
             else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold px-2 py-1">PENDING (Đang nợ)</span>';
             else finalStatus = `<span class="badge bg-secondary text-white fw-bold px-2 py-1">${lead.status || 'Chưa rõ'}</span>`;
 
