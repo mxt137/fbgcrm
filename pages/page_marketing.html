@@ -245,7 +245,7 @@
     }
     
     // ==========================================
-    // 3. THỐNG KÊ ADMIN PANEL
+    // 3. THỐNG KÊ ADMIN PANEL 
     // ==========================================
     async function loadAdminDashboard() {
         try {
@@ -263,14 +263,17 @@
         } catch (err) { console.error('Lỗi tải Dashboard:', err); }
     }
     
-    // KIẾN TRÚC MỚI: TẢI BÁO CÁO SALES NHỜ RPC TRÊN SERVER (GIẢI PHÓNG RAM TRÌNH DUYỆT)
     async function loadAdminSalesStats() {
         const tbody = document.getElementById('adminSalesStatsBody');
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm" style="color: #146654;"></span> Đang tổng hợp dữ liệu từ Server...</td></tr>';
         
         try {
             const { data, error } = await window.sbClient.rpc('get_sales_marketing_stats');
-            if (error) throw error;
+            if (error) {
+                // Hiển thị thông báo nếu Admin chưa tạo RPC get_sales_marketing_stats
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-warning">Vui lòng khởi tạo RPC thống kê trên Database để xem báo cáo.</td></tr>';
+                return;
+            }
             
             tbody.innerHTML = '';
             if (!data || data.length === 0) {
@@ -302,12 +305,12 @@
             });
             document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1" style="color: #146654;"></i> Đang có <strong>${data.length} nhân sự</strong> tham gia khai thác data.`;
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Lỗi: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Lỗi kết xuất dữ liệu</td></tr>`;
         }
     }
     
     // ==========================================
-    // 4. KIẾN TRÚC MỚI: BỐC SỐ SỬ DỤNG SKIP LOCKED
+    // 4. KIẾN TRÚC MỚI: BỐC SỐ QUA RPC BẢO MẬT
     // ==========================================
     async function drawNewLeads() {
         const btn = document.getElementById('btnGetLeads');
@@ -317,11 +320,17 @@
         try {
             const selectedProject = document.getElementById('selectLeadProject').value;
             const myId = window.currentUser.id;
+            const myAllowedProjects = window.currentUser.allowed_projects || [];
     
-            // GỌI RPC TRÊN SERVER THAY VÌ XỬ LÝ 2 BƯỚC Ở CLIENT ĐỂ CHỐNG RACE CONDITION
-            const { data: newLeads, error } = await window.sbClient.rpc('fetch_new_marketing_leads', {
+            if (window.currentUser.role === 'sales' && myAllowedProjects.length === 0) {
+                throw new Error("Tài khoản của bạn chưa được cấp quyền khai thác dự án nào.");
+            }
+    
+            // GỌI RPC MỚI ĐỂ VÁ LỖI BẤT ĐỒNG BỘ TRẠNG THÁI (ĐÃ PHÁT)
+            const { data: newLeads, error } = await window.sbClient.rpc('secure_fetch_marketing_leads', {
                 p_sales_id: myId,
                 p_project: selectedProject,
+                p_allowed_projects: myAllowedProjects,
                 p_limit: 10
             });
             
@@ -347,7 +356,7 @@
     }
     
     // ==========================================
-    // 5. QUẢN LÝ DATA ĐANG NỢ (GIỮ NGUYÊN KIẾN TRÚC HIỂN THỊ CŨ)
+    // 5. QUẢN LÝ DATA ĐANG NỢ
     // ==========================================
     async function loadMyAssignedLeads() {
         const container = document.getElementById('myLeadsContainer');
@@ -426,7 +435,7 @@
     }
     
     // ==========================================
-    // CÁC LOGIC KHÁC (TÌM KIẾM, TỪ CHỐI, IMPORT)
+    // 6. CÁC TIỆN ÍCH KHÁC
     // ==========================================
     
     async function handleRejection(leadId) {
@@ -525,7 +534,7 @@
         const resContainer = document.getElementById('quickSearchResults');
         if (cleanInput.length < 4) { Swal.fire({ icon: 'warning', title: 'Lưu ý', text: 'Nhập tối thiểu 4 số!', confirmButtonColor: '#146654' }); return; }
     
-        resContainer.style.display = 'block'; resContainer.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary"></span> Đang quét...</div>';
+        resContainer.style.display = 'block'; resContainer.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" style="color: #146654;"></span> Đang quét...</div>';
         try {
             const { data, error } = await window.sbClient.rpc('search_marketing_phone', { search_term: cleanInput });
             if (error) throw error;
@@ -592,7 +601,7 @@
                     
                     if(error) Swal.fire('Lỗi DB', error.message, 'error');
                     else {
-                        Swal.fire('Thành Công', 'Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua trùng lặp SĐT + Dự án).', 'success');
+                        Swal.fire({ icon: 'success', title: 'Thành Công', text: 'Đã bơm dữ liệu vào kho!', confirmButtonColor: '#146654' });
                         document.getElementById('inputSheetUrl').value = '';
                     }
                 } else { Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning'); }
