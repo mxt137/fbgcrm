@@ -603,58 +603,64 @@ async function loadAvailableProjects() {
         } catch (err) { resContainer.innerHTML = '<div class="alert alert-danger mb-0">Lỗi: ' + err.message + '</div>'; }
     }
     
-    function handleImportData() {
-        const url = document.getElementById('inputSheetUrl').value.trim();
-        if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
-        const btn = document.getElementById('btnImportData');
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
-    
-        Papa.parse(url, {
-            download: true, header: true, skipEmptyLines: true,
-            complete: async function(results) {
-                const rows = results.data;
-                if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
-                
-                let payload = [];
-                let seenKeys = new Set();
-    
-                rows.forEach(row => {
-                    let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
-                    if(rawPhone.length >= 9) {
-                        let cleanPhone = '0' + rawPhone.slice(-9);
-                        let projectName = row['Dự án'] || 'Không rõ';
-                        let uniqueKey = cleanPhone + '_' + projectName;
-                        
-                        if(!seenKeys.has(uniqueKey)) {
-                            seenKeys.add(uniqueKey);
-                            payload.push({ 
-                                id_kho: row['ID_Kho'] || null, 
-                                customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
-                                phone: cleanPhone, 
-                                project_name: projectName, 
-                                source: row['Nguồn'] || 'Import', 
-                                notes: row['Ghi chú'] || '' 
-                            });
-                        }
-                    }
-                });
-    
-                if(payload.length > 0) {
-                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
-                    const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
-                    
-                    if(error) Swal.fire('Lỗi DB', error.message, 'error');
-                    else {
-                        Swal.fire({ icon: 'success', title: 'Thành Công', text: 'Đã bơm dữ liệu vào kho!', confirmButtonColor: '#146654' });
-                        document.getElementById('inputSheetUrl').value = '';
-                    }
-                } else { Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning'); }
-                
-                resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
-            },
-            error: function() { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
-        });
-    }
+    // 9. IMPORT BẰNG PAPAPARSE VÀ LÀM SẠCH SỐ ĐIỆN THOẠI
+   function handleImportData() {
+   const url = document.getElementById('inputSheetUrl').value.trim();
+   if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
+   const btn = document.getElementById('btnImportData');
+   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
+  
+   Papa.parse(url, {
+   download: true, header: true, skipEmptyLines: true,
+   complete: async function(results) {
+   const rows = results.data;
+   if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
+   
+   let payload = [];
+   let seenKeys = new Set();
+  
+   rows.forEach(row => {
+   // FIX REGEX: Dùng /\D/g thay vì /\\D/g để xóa sạch mọi ký tự chữ cái, dấu phẩy, khoảng trắng
+   let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
+   
+   if(rawPhone.length >= 9) {
+   // Chuẩn hóa về đúng định dạng 10 số (bắt đầu bằng số 0)
+   let cleanPhone = '0' + rawPhone.slice(-9);
+   let projectName = row['Dự án'] || 'Không rõ';
+   let uniqueKey = cleanPhone + '_' + projectName;
+   
+   if(!seenKeys.has(uniqueKey)) {
+   seenKeys.add(uniqueKey);
+   payload.push({ 
+   id_kho: row['ID_Kho'] || null, 
+   customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
+   phone: cleanPhone, 
+   project_name: projectName, 
+   source: row['Nguồn'] || 'Import', 
+   notes: row['Ghi chú'] || '' 
+   });
+   }
+   }
+   });
+  
+   if(payload.length > 0) {
+   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
+   const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
+   
+   if(error) {
+   Swal.fire('Lỗi DB', error.message, 'error');
+   } else {
+   Swal.fire('Thành Công', 'Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).', 'success');
+   document.getElementById('inputSheetUrl').value = '';
+   }
+   } else {
+   Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning');
+   }
+   resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
+   },
+   error: function(err) { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
+   });
+   }
     
     function resetImportBtn() { const btn = document.getElementById('btnImportData'); btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; btn.disabled = false; }
 </script>
