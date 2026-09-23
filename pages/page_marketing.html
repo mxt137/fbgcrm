@@ -168,572 +168,440 @@
 </div>
 
 <script>
-  let myPendingLeads = [];
-  let globalSalesForMarketing = [];
-  
-  // 1. KHỞI TẠO TRANG
-  async function loadMarketingModule() {
-    const role = window.currentUser.role;
+    let myPendingLeads = [];
+    let globalSalesForMarketing = [];
     
-    // Tải danh sách Sales phục vụ báo cáo
-    const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role, department').eq('is_active', true);
-    if(sData) globalSalesForMarketing = sData;
-
-    if (role === 'system' || role === 'admin' || role === 'manager') {
-      document.getElementById('adminMarketingPanel').style.display = 'block';
-      await loadAdminDashboard();
-    }
-
-    if (role !== 'system') {
-      const searchPanel = document.getElementById('quickSearchPanel');
-      const importPanel = document.getElementById('importDataPanel');
-      if(searchPanel) searchPanel.style.display = 'none';
-      if(importPanel) importPanel.style.display = 'none';
-    }
-
-    await loadAvailableProjects();
-    await loadMyAssignedLeads();
-  }
-
-  // 2. LOAD DROPDOWN DỰ ÁN
-  async function loadAvailableProjects() {
-    const selectEl = document.getElementById('selectLeadProject'); 
-    const btnGetLeads = document.getElementById('btnGetLeads');
-    if (!selectEl) return;
-    
-    selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
-    selectEl.disabled = true;
-
-    try {
-      const { data, error } = await window.sbClient.rpc('get_marketing_project_stats');
-      if (error) throw error;
-
-      const role = window.currentUser.role;
-      const allowedProjects = window.currentUser.allowed_projects || [];
-      
-      if (!data || data.length === 0) {
-        selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
-        btnGetLeads.disabled = true;
-        return;
-      }
-
-      let filteredData = data;
-      if (role === 'sales') {
-        filteredData = data.filter(item => allowedProjects.includes(item.project_name));
-      }
-
-      if (filteredData.length === 0) {
-        selectEl.innerHTML = '<option value="">-- Bạn chưa được cấp quyền lấy dự án nào --</option>';
-        btnGetLeads.disabled = true;
-        return;
-      }
-
-      let options = '';
-      if (role !== 'sales' || filteredData.length > 1) {
-        options += '<option value="all">-- Chọn bốc ngẫu nhiên (Tất cả) --</option>';
-      }
-      filteredData.forEach(item => {
-        options += `<option value="${item.project_name}">${item.project_name} (Còn ${item.total_available} số)</option>`;
-      });
-      
-      selectEl.innerHTML = options;
-      if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
-
-    } catch (err) {
-      console.error("Lỗi tải kho data:", err);
-      selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
-    } finally {
-      selectEl.disabled = false;
-    }
-  }
-
-  // 3. THỐNG KÊ ADMIN PANEL (TOP)
-  async function loadAdminDashboard() {
-    try {
-      const { count: total } = await window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true });
-      document.getElementById('statTotal').innerText = new Intl.NumberFormat().format(total || 0);
-
-      const { count: assigned } = await window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).neq('status', 'Chưa phát');
-      document.getElementById('statAssigned').innerText = new Intl.NumberFormat().format(assigned || 0);
-
-      const { count: pending } = await window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null);
-      document.getElementById('statPending').innerText = new Intl.NumberFormat().format(pending || 0);
-
-      const { count: potential } = await window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng');
-      document.getElementById('statPotential').innerText = new Intl.NumberFormat().format(potential || 0);
-    } catch (err) { console.error('Lỗi tải Dashboard:', err); }
-  }
-
-  // 3.5 BÁO CÁO SALES CHI TIẾT (ĐÃ LOẠI BỎ LỖI CÚ PHÁP JAVASCRIPT GÂY ĐƠ TRANG)
-  async function loadAdminSalesStats() {
-    const tbody = document.getElementById('adminSalesStatsBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Đang kết xuất dữ liệu diện rộng...</td></tr>';
-    
-    let allData = [];
-    let from = 0;
-    const step = 1000;
-    let hasMore = true;
-
-    // Tải toàn bộ Data không giới hạn bằng Chunking - Ép sắp xếp id để Data không bị xáo trộn giữa các trang
-    while(hasMore) {
-      const { data, error } = await window.sbClient.from('marketing_leads')
-        .select('assigned_to, status, quick_report, rejected_by')
-        .or('assigned_to.not.is.null,rejected_by.neq.{},quick_report.not.is.null')
-        .order('id', { ascending: true }) 
-        .range(from, from + step - 1);
+    // ==========================================
+    // 1. KHỞI TẠO MODULE & UI
+    // ==========================================
+    async function loadMarketingModule() {
+        const role = window.currentUser.role;
         
-      if (error) { 
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi kết nối CSDL: ' + error.message + '</td></tr>'; 
-        return; 
-      }
-      
-      if (data && data.length > 0) {
-        allData.push(...data);
-        from += step;
-        if (data.length < step) hasMore = false;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    if(allData.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nào được khai thác.</td></tr>'; 
-        return; 
-    }
-
-    let statsMap = {};
+        const { data: sData } = await window.sbClient.from('safe_members').select('id, full_name, role, department').eq('is_active', true);
+        if(sData) globalSalesForMarketing = sData;
     
-    // Nạp sẵn danh sách Sales với thông tin phòng ban (bỏ qua System)
-    globalSalesForMarketing.forEach(sale => {
-      if (sale.role !== 'system') {
-        statsMap[sale.id] = { 
-          name: sale.full_name, 
-          role: sale.role, 
-          department: sale.department || 'Chưa phân phòng',
-          total: 0, pending: 0, potential: 0, rejected: 0 
-        };
-      }
-    });
-
-    // Bóc tách mảng để đếm chính xác số Tiềm năng cho người thao tác
-    allData.forEach(lead => {
-      // 1. Phân tích người đang giữ số hiện tại (assigned_to)
-      if(lead.assigned_to && statsMap[lead.assigned_to]) {
-        statsMap[lead.assigned_to].total++;
-        
-        if (lead.quick_report === 'Tiềm năng') {
-          statsMap[lead.assigned_to].potential++;
-        } else if (lead.status === 'Đã phát' && !lead.quick_report) {
-          statsMap[lead.assigned_to].pending++;
-        } else if (lead.quick_report && lead.quick_report !== 'Tiềm năng') {
-          statsMap[lead.assigned_to].rejected++;
+        if (['system', 'admin', 'manager'].includes(role)) {
+            document.getElementById('adminMarketingPanel').style.display = 'block';
+            await loadAdminDashboard();
         }
-      }
-      
-      // 2. Phân tích những người đã từng thao tác (Lịch sử Sổ đen)
-      if(lead.rejected_by && lead.rejected_by.length > 0) {
-        lead.rejected_by.forEach((saleId, index) => {
-          if (statsMap[saleId]) {
-            if (saleId !== lead.assigned_to) {
-              statsMap[saleId].total++;
-              
-              // CHỈ người thao tác cuối cùng mới nhận kết quả Tiềm Năng
-              if (index === lead.rejected_by.length - 1 && !lead.assigned_to && lead.quick_report === 'Tiềm năng') {
-                statsMap[saleId].potential++;
-              } else {
-                statsMap[saleId].rejected++;
-              }
+    
+        if (role !== 'system') {
+            const searchPanel = document.getElementById('quickSearchPanel');
+            const importPanel = document.getElementById('importDataPanel');
+            if(searchPanel) searchPanel.style.display = 'none';
+            if(importPanel) importPanel.style.display = 'none';
+        }
+    
+        await loadAvailableProjects();
+        await loadMyAssignedLeads();
+    }
+    
+    // ==========================================
+    // 2. LOAD DROPDOWN DỰ ÁN TỪ SERVER
+    // ==========================================
+    async function loadAvailableProjects() {
+        const selectEl = document.getElementById('selectLeadProject'); 
+        const btnGetLeads = document.getElementById('btnGetLeads');
+        if (!selectEl) return;
+        
+        selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
+        selectEl.disabled = true;
+    
+        try {
+            const { data, error } = await window.sbClient.rpc('get_marketing_project_stats');
+            if (error) throw error;
+    
+            const role = window.currentUser.role;
+            const allowedProjects = window.currentUser.allowed_projects || [];
+            
+            if (!data || data.length === 0) {
+                selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
+                btnGetLeads.disabled = true;
+                return;
             }
-          }
-        });
-      }
-    });
-
-    tbody.innerHTML = '';
     
-    let activeSalesList = Object.values(statsMap).filter(st => st.total > 0);
+            let filteredData = role === 'sales' ? data.filter(item => allowedProjects.includes(item.project_name)) : data;
     
-    // Sắp xếp tự động theo Tên Phòng Ban (A-Z)
-    activeSalesList.sort((a, b) => {
-      if (a.department === 'Chưa phân phòng') return 1; 
-      if (b.department === 'Chưa phân phòng') return -1;
-      return a.department.localeCompare(b.department);
-    });
-
-    let activeSalesCount = activeSalesList.length;
-
-    if (activeSalesCount === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có nhân sự nào tham gia bốc số.</td></tr>';
-    } else {
-      let currentDept = null;
-
-      activeSalesList.forEach(st => {
-        // Gom nhóm Group Header theo Phòng ban
-        if (currentDept !== st.department) {
-          currentDept = st.department;
-          tbody.innerHTML += '<tr><td colspan="5" class="bg-light text-danger fw-bold text-uppercase" style="font-size: 11px; padding: 8px 16px; border-top: 2px solid #e2e8f0;"><i class="ti ti-building-skyscraper me-1"></i> <b>' + currentDept + '</b></td></tr>';
-        }
-
-        // Định dạng cột thống kê trước khi chèn để loại bỏ hoàn toàn các lỗi Template String
-        const potHtml = st.potential > 0 ? '<span class="badge bg-blue-lt px-2 py-1">' + st.potential + '</span>' : '0';
-        const rejHtml = st.rejected > 0 ? '<span class="badge bg-red-lt px-2 py-1">' + st.rejected + '</span>' : '0';
-        const penHtml = st.pending > 0 ? '<span class="badge bg-warning text-white px-2 py-1">' + st.pending + '</span>' : '0';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="ps-4 font-weight-medium">${st.name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
-          <td class="text-center fw-bold" style="font-size: 15px;">${st.total}</td>
-          <td class="text-center text-primary fw-bold">${potHtml}</td>
-          <td class="text-center text-danger fw-bold">${rejHtml}</td>
-          <td class="text-center text-warning fw-bold">${penHtml}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    document.getElementById('adminActiveSalesCount').innerHTML = '<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>' + activeSalesCount + ' nhân sự</strong> tham gia khai thác data.';
-  }
-
-  // 4. DANH SÁCH ĐANG NỢ CỦA SALES (SỬA LỖI ESCAPE CÚ PHÁP TƯƠNG TỰ BÊN TRÊN)
-  async function loadMyAssignedLeads() {
-    const container = document.getElementById('myLeadsContainer');
-    const myId = window.currentUser.id;
-
-    const { data, error } = await window.sbClient.from('marketing_leads')
-      .select('*').eq('assigned_to', myId).eq('status', 'Đã phát').is('quick_report', null).order('assigned_at', { ascending: false });
-
-    if (error) { container.innerHTML = '<div class="col-12 text-danger">Lỗi tải dữ liệu.</div>'; return; }
-    myPendingLeads = data || [];
-
-    const btnGet = document.getElementById('btnGetLeads');
-    const warning = document.getElementById('pendingWarning');
-    const isProjectEmpty = document.getElementById('selectLeadProject').options.length === 0 || document.getElementById('selectLeadProject').value === "";
-    
-    if (myPendingLeads.length > 0) {
-      btnGet.disabled = true; btnGet.innerHTML = '<i class="ti ti-lock me-2"></i> Phải xử lý xong số cũ';
-      warning.style.display = 'block';
-    } else if (!isProjectEmpty) {
-      btnGet.disabled = false; btnGet.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data Mới';
-      warning.style.display = 'none';
-    }
-
-    container.innerHTML = '';
-    if (myPendingLeads.length === 0) {
-      container.innerHTML = '<div class="col-12 text-center py-5"><i class="ti ti-database-off text-muted" style="font-size: 80px; opacity: 0.2;"></i><div class="text-muted fs-3 mt-3">Bạn đã xử lý hết Data. Hãy chọn Dự án và bốc số tiếp nhé!</div></div>'; 
-      return;
-    }
-
-    myPendingLeads.forEach((lead, index) => {
-      const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
-      const col = document.createElement('div'); col.className = 'col-md-6';
-      
-      let historyHtml = '';
-      if (lead.report_history && lead.report_history.length > 0) {
-          //historyHtml = '<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">' + lead.report_history.join(' ➔ ') + '</span></div>';
-          historyHtml = '<div class="mt-1"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">Gọi đi nhìn cái gì? Múc giờ!</span></div>';
-      }
-
-      const loopCount = (lead.attempt_count || 0) + 1;
-      const cName = lead.customer_name || 'Khách hàng';
-      const pName = lead.project_name || 'Không rõ';
-      const notesHtml = lead.notes ? '<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">' + lead.notes + '</span></div>' : '';
-
-      col.innerHTML = `
-        <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp: ${loopCount}/3</span>
-            <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
-          </div>
-          <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${cName}</h4>
-          
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1 text-primary"></i>${lead.phone}</div>
-            <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
-            <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
-          </div>
-
-          <div class="text-muted mb-4" style="font-size: 13px;">
-            <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${pName}</span></div>
-            ${notesHtml}
-            ${historyHtml}
-          </div>
-          
-          <div class="mt-auto d-flex gap-2">
-            <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
-              <i class="ti ti-phone-off fs-3"></i> BỎ QUA
-            </button>
-            <button class="btn btn-success btn-report flex-grow-1" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
-              <i class="ti ti-star fs-3"></i> TIỀM NĂNG
-            </button>
-          </div>
-        </div>
-      `;
-      container.appendChild(col);
-    });
-  }
-
-  // 5. TÌM KIẾM NHANH BẰNG RPC
-  async function triggerQuickSearch() {
-    const rawInput = document.getElementById('searchPhoneInput').value;
-    const cleanInput = rawInput.replace(/\s+/g, ''); 
-    const resContainer = document.getElementById('quickSearchResults');
-    if (cleanInput.length < 4) { Swal.fire({ icon: 'warning', title: 'Lưu ý', text: 'Nhập tối thiểu 4 số!', confirmButtonColor: '#146654' }); return; }
-
-    resContainer.style.display = 'block'; resContainer.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary"></span> Đang quét...</div>';
-    try {
-      const { data, error } = await window.sbClient.rpc('search_marketing_phone', { search_term: cleanInput });
-      if (error) throw error;
-      if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0">Không tìm thấy dữ liệu.</div>'; return; }
-
-      let html = '<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>';
-      data.forEach(item => {
-        const cName = item.customer_name || 'Chưa có tên';
-        const pName = item.project_name || 'Không rõ';
-        html += `
-          <tr class="search-result-row">
-            <td class="ps-3 fw-bold text-dark">${cName}</td>
-            <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
-            <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${pName}</span></td>
-            <td class="text-center">
-              <div class="d-flex justify-content-center gap-1">
-                <a href="tel:${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
-                <a href="https://zalo.me/${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
-              </div>
-            </td>
-          </tr>`;
-      });
-      resContainer.innerHTML = html + '</tbody></table></div>';
-    } catch (err) { resContainer.innerHTML = '<div class="alert alert-danger mb-0">Lỗi: ' + err.message + '</div>'; }
-  }
-
-  // 6. BỐC SỐ TỰ ĐỘNG
-  async function drawNewLeads() {
-    const btn = document.getElementById('btnGetLeads');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
-    btn.disabled = true;
-
-    try {
-      const selectedProject = document.getElementById('selectLeadProject').value;
-      const role = window.currentUser.role;
-      const allowedProjects = window.currentUser.allowed_projects || [];
-      const myId = window.currentUser.id;
-
-      if (role === 'sales' && allowedProjects.length === 0) {
-        throw new Error("Tài khoản của bạn chưa được cấp quyền khai thác dự án nào.");
-      }
-
-      let query = window.sbClient.from('marketing_leads')
-        .select('id')
-        .eq('status', 'Chưa phát')
-        .not('rejected_by', 'cs', `{${myId}}`); 
-
-      if (selectedProject !== 'all') {
-        query = query.eq('project_name', selectedProject);
-      } else if (role === 'sales') {
-        query = query.in('project_name', allowedProjects);
-      }
-      
-      const { data: readyLeads, error: errFetch } = await query
-        .order('attempt_count', { ascending: true })
-        .order('created_at', { ascending: true })
-        .limit(10);
-      
-      if (errFetch) throw errFetch;
-      
-      if (!readyLeads || readyLeads.length === 0) {
-        Swal.fire({ icon: 'info', title: 'Kho cạn!', text: 'Không còn data phù hợp hoặc bạn đã lọc qua hết các số tồn đọng.', confirmButtonColor: '#146654' });
-        btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; return;
-      }
-
-      const leadIds = readyLeads.map(l => l.id);
-      const vnTime = new Date().toISOString();
-
-      const { error: errUpdate } = await window.sbClient.from('marketing_leads')
-        .update({ status: 'Đã phát', assigned_to: myId, assigned_at: vnTime, quick_report: null })
-        .in('id', leadIds);
-        
-      if (errUpdate) throw errUpdate;
-
-      Swal.fire({ icon: 'success', title: 'Thành công', text: `Nhận ${leadIds.length} data mới.`, timer: 1500, showConfirmButton: false });
-      
-      await loadMyAssignedLeads();
-      await loadAvailableProjects(); 
-      if (window.currentUser.role === 'admin' || window.currentUser.role === 'system' || window.currentUser.role === 'manager') loadAdminDashboard();
-      
-    } catch (error) { 
-      Swal.fire('Lỗi bảo mật', error.message, 'error'); 
-      btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; btn.disabled = false; 
-    }
-  }
-
-  // 7. XỬ LÝ NÚT BỎ QUA - BẬT POPUP CHỌN LÝ DO
-  async function handleRejection(leadId) {
-    const { value: reason } = await Swal.fire({
-      title: 'Lý do bỏ qua data này?',
-      html: `
-        <div class="mb-3 text-start">
-          <label class="form-label text-muted fw-bold" style="font-size: 12px;">NHẬP LÝ DO HOẶC CHỌN GỢI Ý:</label>
-          <input id="swal-input-reason" class="form-control form-control-lg" placeholder="VD: Khách báo đã mua dự án khác..." autocomplete="off" style="border-radius: 8px;">
-        </div>
-        <div class="d-flex flex-wrap gap-2 justify-content-start">
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không nghe máy'">Không nghe máy</span>
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không có nhu cầu'">Không có nhu cầu</span>
-          <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Sai số / Nhầm người'">Sai số / Nhầm người</span>
-          <span class="badge bg-danger-lt p-2 text-danger" style="cursor: pointer; border: 1px solid #fca5a5;" onclick="document.getElementById('swal-input-reason').value='Số Rác / Thuê bao'">Số Rác / Thuê bao</span>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: '<i class="ti ti-check me-1"></i> Xác nhận Bỏ qua',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#e11d48',
-      preConfirm: () => {
-        const val = document.getElementById('swal-input-reason').value.trim();
-        if (!val) {
-          Swal.showValidationMessage('Vui lòng nhập lý do cụ thể hoặc nhấp chọn gợi ý!');
-          return false;
-        }
-        return val;
-      }
-    });
-
-    if (reason) {
-      submitQuickReport(leadId, reason);
-    }
-  }
-
-  // 8. GHI NHẬN BÁO CÁO QUA RPC DATABASE
-  async function submitQuickReport(leadId, reportType) {
-    const card = document.getElementById('lead-card-' + leadId);
-    card.style.opacity = '0.5'; 
-    try {
-      const myId = window.currentUser.id;
-      const myName = window.currentUser.full_name;
-
-      const { error } = await window.sbClient.rpc('report_marketing_lead', {
-        p_lead_id: leadId,
-        p_sales_id: myId,
-        p_report: reportType
-      });
-
-      if (error) throw error;
-
-      if (reportType === 'Tiềm năng') {
-        const leadData = myPendingLeads.find(l => l.id === leadId);
-        
-        await switchPage('khachhang');
-        
-        setTimeout(async () => {
-          if (typeof openCustomerModal === 'function') {
-            await openCustomerModal(); 
-            
-            let fakeBtn = document.createElement('button');
-            fakeBtn.setAttribute('data-bs-toggle', 'modal');
-            fakeBtn.setAttribute('data-bs-target', '#modal-customer');
-            document.body.appendChild(fakeBtn);
-            fakeBtn.click();
-            fakeBtn.remove();
-            
-            setTimeout(() => {
-              document.getElementById('cusName').value = leadData.customer_name || '';
-              document.getElementById('cusPhone').value = leadData.phone || '';
-              
-              const sourceVal = leadData.source || 'Khác';
-              const sourceSelect = document.getElementById('cusSource');
-              if (sourceSelect) {
-                if (!sourceSelect.querySelector('option[value="' + sourceVal + '"]')) {
-                  const opt = document.createElement('option');
-                  opt.value = sourceVal; opt.text = sourceVal;
-                  sourceSelect.appendChild(opt);
-                }
-                sourceSelect.value = sourceVal; 
-              }
-
-              document.getElementById('cusStatus').value = 'potential'; 
-              
-              const assignInput = document.getElementById('cusAssigned');
-              if (assignInput) {
-                if (!assignInput.querySelector('option[value="' + myId + '"]')) {
-                  const opt = document.createElement('option'); 
-                  opt.value = myId; opt.text = myName; 
-                  assignInput.appendChild(opt); 
-                }
-                assignInput.value = myId; 
-              }
-              
-              document.getElementById('cusNotes').focus();
-              document.getElementById('cusNotes').value = '[Từ Kho Data Marketing - Dự án: ' + (leadData.project_name || 'Không rõ') + ']\n';
-            }, 400); 
-          }
-        }, 300);
-      }
-
-      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã báo cáo: ' + reportType, showConfirmButton: false, timer: 3000 });
-
-      myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
-      await loadMyAssignedLeads();
-      
-      if (window.currentUser.role === 'admin' || window.currentUser.role === 'system' || window.currentUser.role === 'manager') { 
-        loadAdminDashboard(); loadAdminSalesStats(); 
-      }
-    } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
-  }
-
-  // 9. IMPORT BẰNG PAPAPARSE VÀ LÀM SẠCH SỐ ĐIỆN THOẠI
-  function handleImportData() {
-    const url = document.getElementById('inputSheetUrl').value.trim();
-    if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
-    const btn = document.getElementById('btnImportData');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
-
-    Papa.parse(url, {
-      download: true, header: true, skipEmptyLines: true,
-      complete: async function(results) {
-        const rows = results.data;
-        if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
-        
-        let payload = [];
-        let seenKeys = new Set();
-
-        rows.forEach(row => {
-          let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\\D/g, '');
-          
-          if(rawPhone.length >= 9) {
-            let cleanPhone = '0' + rawPhone.slice(-9);
-            let projectName = row['Dự án'] || 'Không rõ';
-            let uniqueKey = cleanPhone + '_' + projectName;
-            
-            if(!seenKeys.has(uniqueKey)) {
-              seenKeys.add(uniqueKey);
-              payload.push({ 
-                id_kho: row['ID_Kho'] || null, 
-                customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
-                phone: cleanPhone, 
-                project_name: projectName, 
-                source: row['Nguồn'] || 'Import', 
-                notes: row['Ghi chú'] || '' 
-              });
+            if (filteredData.length === 0) {
+                selectEl.innerHTML = '<option value="">-- Chưa được cấp quyền dự án --</option>';
+                btnGetLeads.disabled = true;
+                return;
             }
-          }
-        });
-
-        if(payload.length > 0) {
-          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
-          const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
-          
-          if(error) {
-            Swal.fire('Lỗi DB', error.message, 'error');
-          } else {
-            Swal.fire('Thành Công', 'Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua các dòng trùng lặp SĐT + Dự án).', 'success');
-            document.getElementById('inputSheetUrl').value = '';
-          }
-        } else {
-          Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning');
+    
+            let options = (role !== 'sales' || filteredData.length > 1) ? '<option value="all">-- Chọn bốc ngẫu nhiên (Tất cả) --</option>' : '';
+            filteredData.forEach(item => {
+                options += `<option value="${item.project_name}">${item.project_name} (Còn ${item.total_available} số)</option>`;
+            });
+            
+            selectEl.innerHTML = options;
+            if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
+    
+        } catch (err) {
+            console.error("Lỗi tải kho data:", err);
+            selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
+        } finally {
+            selectEl.disabled = false;
         }
-        resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
-      },
-      error: function(err) { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
-    });
-  }
-  
-  function resetImportBtn() { const btn = document.getElementById('btnImportData'); btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; btn.disabled = false; }
+    }
+    
+    // ==========================================
+    // 3. THỐNG KÊ ADMIN PANEL
+    // ==========================================
+    async function loadAdminDashboard() {
+        try {
+            Promise.all([
+                window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }),
+                window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).neq('status', 'Chưa phát'),
+                window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null),
+                window.sbClient.from('marketing_leads').select('*', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng')
+            ]).then(([resTotal, resAssigned, resPending, resPotential]) => {
+                document.getElementById('statTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
+                document.getElementById('statAssigned').innerText = new Intl.NumberFormat().format(resAssigned.count || 0);
+                document.getElementById('statPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
+                document.getElementById('statPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
+            });
+        } catch (err) { console.error('Lỗi tải Dashboard:', err); }
+    }
+    
+    // KIẾN TRÚC MỚI: TẢI BÁO CÁO SALES NHỜ RPC TRÊN SERVER (GIẢI PHÓNG RAM TRÌNH DUYỆT)
+    async function loadAdminSalesStats() {
+        const tbody = document.getElementById('adminSalesStatsBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm" style="color: #146654;"></span> Đang tổng hợp dữ liệu từ Server...</td></tr>';
+        
+        try {
+            const { data, error } = await window.sbClient.rpc('get_sales_marketing_stats');
+            if (error) throw error;
+            
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có nhân sự nào tham gia bốc số.</td></tr>';
+                document.getElementById('adminActiveSalesCount').innerHTML = '<i class="ti ti-users me-1 text-primary"></i> Đang có <strong>0 nhân sự</strong> tham gia.';
+                return;
+            }
+    
+            let currentDept = null;
+            data.forEach(st => {
+                if (currentDept !== st.department) {
+                    currentDept = st.department;
+                    tbody.innerHTML += `<tr><td colspan="5" class="bg-light text-danger fw-bold text-uppercase" style="font-size: 11px; padding: 8px 16px; border-top: 2px solid #e2e8f0;"><i class="ti ti-building-skyscraper me-1"></i> <b>${currentDept}</b></td></tr>`;
+                }
+    
+                const potHtml = st.potential_count > 0 ? `<span class="badge bg-blue-lt px-2 py-1">${st.potential_count}</span>` : '0';
+                const rejHtml = st.rejected_count > 0 ? `<span class="badge bg-red-lt px-2 py-1">${st.rejected_count}</span>` : '0';
+                const penHtml = st.pending_count > 0 ? `<span class="badge bg-warning text-white px-2 py-1">${st.pending_count}</span>` : '0';
+    
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="ps-4 font-weight-medium">${st.sales_name} <span class="badge bg-secondary-lt ms-1" style="font-size: 10px;">${st.role}</span></td>
+                        <td class="text-center fw-bold" style="font-size: 15px;">${st.total_received}</td>
+                        <td class="text-center text-primary fw-bold">${potHtml}</td>
+                        <td class="text-center text-danger fw-bold">${rejHtml}</td>
+                        <td class="text-center text-warning fw-bold">${penHtml}</td>
+                    </tr>
+                `;
+            });
+            document.getElementById('adminActiveSalesCount').innerHTML = `<i class="ti ti-users me-1" style="color: #146654;"></i> Đang có <strong>${data.length} nhân sự</strong> tham gia khai thác data.`;
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Lỗi: ${err.message}</td></tr>`;
+        }
+    }
+    
+    // ==========================================
+    // 4. KIẾN TRÚC MỚI: BỐC SỐ SỬ DỤNG SKIP LOCKED
+    // ==========================================
+    async function drawNewLeads() {
+        const btn = document.getElementById('btnGetLeads');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang bốc số...'; 
+        btn.disabled = true;
+    
+        try {
+            const selectedProject = document.getElementById('selectLeadProject').value;
+            const myId = window.currentUser.id;
+    
+            // GỌI RPC TRÊN SERVER THAY VÌ XỬ LÝ 2 BƯỚC Ở CLIENT ĐỂ CHỐNG RACE CONDITION
+            const { data: newLeads, error } = await window.sbClient.rpc('fetch_new_marketing_leads', {
+                p_sales_id: myId,
+                p_project: selectedProject,
+                p_limit: 10
+            });
+            
+            if (error) throw error;
+            
+            if (!newLeads || newLeads.length === 0) {
+                Swal.fire({ icon: 'info', title: 'Kho cạn!', text: 'Không còn data phù hợp hoặc bạn đã lọc qua hết các số tồn đọng.', confirmButtonColor: '#146654' });
+                return;
+            }
+    
+            Swal.fire({ icon: 'success', title: 'Thành công', text: `Nhận ${newLeads.length} data mới.`, timer: 1500, showConfirmButton: false });
+            
+            await loadMyAssignedLeads();
+            await loadAvailableProjects(); 
+            if (['admin', 'system', 'manager'].includes(window.currentUser.role)) loadAdminDashboard();
+            
+        } catch (error) { 
+            Swal.fire('Lỗi bảo mật', error.message, 'error'); 
+        } finally {
+            btn.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data'; 
+            if(myPendingLeads.length === 0) btn.disabled = false; 
+        }
+    }
+    
+    // ==========================================
+    // 5. QUẢN LÝ DATA ĐANG NỢ (GIỮ NGUYÊN KIẾN TRÚC HIỂN THỊ CŨ)
+    // ==========================================
+    async function loadMyAssignedLeads() {
+        const container = document.getElementById('myLeadsContainer');
+        const myId = window.currentUser.id;
+    
+        const { data, error } = await window.sbClient.from('marketing_leads')
+            .select('*').eq('assigned_to', myId).eq('status', 'Đã phát').is('quick_report', null).order('assigned_at', { ascending: false });
+    
+        if (error) { container.innerHTML = '<div class="col-12 text-danger">Lỗi tải dữ liệu.</div>'; return; }
+        myPendingLeads = data || [];
+    
+        const btnGet = document.getElementById('btnGetLeads');
+        const warning = document.getElementById('pendingWarning');
+        const isProjectEmpty = document.getElementById('selectLeadProject').options.length === 0 || document.getElementById('selectLeadProject').value === "";
+        
+        if (myPendingLeads.length > 0) {
+            btnGet.disabled = true; btnGet.innerHTML = '<i class="ti ti-lock me-2"></i> Phải xử lý xong số cũ';
+            warning.style.display = 'block';
+        } else if (!isProjectEmpty) {
+            btnGet.disabled = false; btnGet.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data Mới';
+            warning.style.display = 'none';
+        }
+    
+        container.innerHTML = '';
+        if (myPendingLeads.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center py-5"><i class="ti ti-database-off text-muted" style="font-size: 80px; opacity: 0.2;"></i><div class="text-muted fs-3 mt-3">Bạn đã xử lý hết Data. Hãy chọn Dự án và bốc số tiếp nhé!</div></div>'; 
+            return;
+        }
+    
+        myPendingLeads.forEach((lead, index) => {
+            const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+            const col = document.createElement('div'); col.className = 'col-md-6';
+            
+            let historyHtml = '';
+            if (lead.report_history && lead.report_history.length > 0) {
+                historyHtml = '<div class="mt-1"><i class="ti ti-history me-1" style="color:#146654;"></i> Lịch sử xử lý: <span class="fst-italic text-dark">' + lead.report_history.join(' ➔ ') + '</span></div>';
+            }
+    
+            const loopCount = (lead.attempt_count || 0) + 1;
+            const cName = lead.customer_name || 'Khách hàng';
+            const pName = lead.project_name || 'Không rõ';
+            const notesHtml = lead.notes ? `<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : '';
+    
+            col.innerHTML = `
+            <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp: ${loopCount}/3</span>
+                    <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
+                </div>
+                <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${cName}</h4>
+                
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1" style="color:#146654;"></i>${lead.phone}</div>
+                    <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
+                    <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
+                </div>
+    
+                <div class="text-muted mb-4" style="font-size: 13px;">
+                    <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${pName}</span></div>
+                    ${notesHtml}
+                    ${historyHtml}
+                </div>
+                
+                <div class="mt-auto d-flex gap-2">
+                    <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
+                        <i class="ti ti-phone-off fs-3"></i> BỎ QUA
+                    </button>
+                    <button class="btn text-white btn-report flex-grow-1" style="background-color: #146654;" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
+                        <i class="ti ti-star fs-3"></i> TIỀM NĂNG
+                    </button>
+                </div>
+            </div>
+            `;
+            container.appendChild(col);
+        });
+    }
+    
+    // ==========================================
+    // CÁC LOGIC KHÁC (TÌM KIẾM, TỪ CHỐI, IMPORT)
+    // ==========================================
+    
+    async function handleRejection(leadId) {
+        const { value: reason } = await Swal.fire({
+            title: 'Lý do bỏ qua data này?',
+            html: `
+                <div class="mb-3 text-start">
+                    <label class="form-label text-muted fw-bold" style="font-size: 12px;">NHẬP LÝ DO HOẶC CHỌN GỢI Ý:</label>
+                    <input id="swal-input-reason" class="form-control form-control-lg" placeholder="VD: Khách báo đã mua dự án khác..." autocomplete="off" style="border-radius: 8px;">
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-start">
+                    <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không nghe máy'">Không nghe máy</span>
+                    <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Không có nhu cầu'">Không có nhu cầu</span>
+                    <span class="badge bg-secondary-lt p-2" style="cursor: pointer; border: 1px solid #cbd5e1;" onclick="document.getElementById('swal-input-reason').value='Sai số / Nhầm người'">Sai số / Nhầm người</span>
+                    <span class="badge bg-danger-lt p-2 text-danger" style="cursor: pointer; border: 1px solid #fca5a5;" onclick="document.getElementById('swal-input-reason').value='Số Rác / Thuê bao'">Số Rác / Thuê bao</span>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="ti ti-check me-1"></i> Xác nhận Bỏ qua',
+            cancelButtonText: 'Hủy',
+            confirmButtonColor: '#e11d48',
+            preConfirm: () => {
+                const val = document.getElementById('swal-input-reason').value.trim();
+                if (!val) { Swal.showValidationMessage('Vui lòng nhập lý do cụ thể hoặc nhấp chọn gợi ý!'); return false; }
+                return val;
+            }
+        });
+        if (reason) submitQuickReport(leadId, reason);
+    }
+    
+    async function submitQuickReport(leadId, reportType) {
+        const card = document.getElementById('lead-card-' + leadId);
+        card.style.opacity = '0.5'; 
+        try {
+            const myId = window.currentUser.id;
+            const myName = window.currentUser.full_name;
+    
+            const { error } = await window.sbClient.rpc('report_marketing_lead', {
+                p_lead_id: leadId, p_sales_id: myId, p_report: reportType
+            });
+    
+            if (error) throw error;
+    
+            if (reportType === 'Tiềm năng') {
+                const leadData = myPendingLeads.find(l => l.id === leadId);
+                await switchPage('khachhang');
+                
+                setTimeout(async () => {
+                    if (typeof openCustomerModal === 'function') {
+                        await openCustomerModal(); 
+                        let fakeBtn = document.createElement('button');
+                        fakeBtn.setAttribute('data-bs-toggle', 'modal');
+                        fakeBtn.setAttribute('data-bs-target', '#modal-customer');
+                        document.body.appendChild(fakeBtn);
+                        fakeBtn.click();
+                        fakeBtn.remove();
+                        
+                        setTimeout(() => {
+                            document.getElementById('cusName').value = leadData.customer_name || '';
+                            document.getElementById('cusPhone').value = leadData.phone || '';
+                            
+                            const sourceVal = leadData.source || 'Khác';
+                            const sourceSelect = document.getElementById('cusSource');
+                            if (sourceSelect && !sourceSelect.querySelector('option[value="' + sourceVal + '"]')) {
+                                sourceSelect.insertAdjacentHTML('beforeend', `<option value="${sourceVal}">${sourceVal}</option>`);
+                            }
+                            if(sourceSelect) sourceSelect.value = sourceVal; 
+    
+                            document.getElementById('cusStatus').value = 'potential'; 
+                            
+                            const assignInput = document.getElementById('cusAssigned');
+                            if (assignInput && !assignInput.querySelector('option[value="' + myId + '"]')) {
+                                assignInput.insertAdjacentHTML('beforeend', `<option value="${myId}">${myName}</option>`);
+                            }
+                            if(assignInput) assignInput.value = myId; 
+                            
+                            document.getElementById('cusNotes').value = '[Từ Kho Data Marketing - Dự án: ' + (leadData.project_name || 'Không rõ') + ']\n';
+                            document.getElementById('cusNotes').focus();
+                        }, 400); 
+                    }
+                }, 300);
+            }
+    
+            Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã báo cáo: ' + reportType, showConfirmButton: false, timer: 3000 });
+            myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
+            await loadMyAssignedLeads();
+            
+            if (['admin', 'system', 'manager'].includes(window.currentUser.role)) { 
+                loadAdminDashboard(); loadAdminSalesStats(); 
+            }
+        } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
+    }
+    
+    async function triggerQuickSearch() {
+        const cleanInput = document.getElementById('searchPhoneInput').value.replace(/\s+/g, ''); 
+        const resContainer = document.getElementById('quickSearchResults');
+        if (cleanInput.length < 4) { Swal.fire({ icon: 'warning', title: 'Lưu ý', text: 'Nhập tối thiểu 4 số!', confirmButtonColor: '#146654' }); return; }
+    
+        resContainer.style.display = 'block'; resContainer.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary"></span> Đang quét...</div>';
+        try {
+            const { data, error } = await window.sbClient.rpc('search_marketing_phone', { search_term: cleanInput });
+            if (error) throw error;
+            if (!data || data.length === 0) { resContainer.innerHTML = '<div class="alert alert-info bg-blue-lt mb-0 border-0">Không tìm thấy dữ liệu.</div>'; return; }
+    
+            let html = '<div class="table-responsive border rounded-3 mt-2"><table class="table table-vcenter table-hover card-table m-0"><thead style="background: #f8fafc;"><tr><th class="ps-3 text-uppercase text-muted" style="font-size: 11px;">Tên Khách Hàng</th><th class="text-uppercase text-muted" style="font-size: 11px;">Số Điện Thoại</th><th class="text-uppercase text-muted" style="font-size: 11px;">Dự Án</th><th class="text-center text-uppercase text-muted" style="font-size: 11px;">Thao Tác</th></tr></thead><tbody>';
+            data.forEach(item => {
+                html += `
+                <tr class="search-result-row">
+                    <td class="ps-3 fw-bold text-dark">${item.customer_name || 'Chưa có tên'}</td>
+                    <td class="fw-bold" style="color: #146654; font-size: 15px;">${item.phone}</td>
+                    <td><span class="badge bg-secondary-lt fw-medium px-2 py-1">${item.project_name || 'Không rõ'}</span></td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-1">
+                            <a href="tel:${item.phone}" class="btn btn-sm btn-outline-success border-0 px-2" title="Gọi"><i class="ti ti-phone"></i></a>
+                            <a href="https://zalo.me/${item.phone}" target="_blank" class="btn btn-sm btn-outline-primary border-0 px-2" title="Zalo"><i class="ti ti-brand-hipchat"></i></a>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            resContainer.innerHTML = html + '</tbody></table></div>';
+        } catch (err) { resContainer.innerHTML = '<div class="alert alert-danger mb-0">Lỗi: ' + err.message + '</div>'; }
+    }
+    
+    function handleImportData() {
+        const url = document.getElementById('inputSheetUrl').value.trim();
+        if (!url) { Swal.fire('Cảnh báo', 'Vui lòng dán link!', 'warning'); return; }
+        const btn = document.getElementById('btnImportData');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xử lý...'; btn.disabled = true;
+    
+        Papa.parse(url, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: async function(results) {
+                const rows = results.data;
+                if(rows.length === 0) { Swal.fire('Lỗi', 'Sheet rỗng hoặc sai định dạng!', 'error'); resetImportBtn(); return; }
+                
+                let payload = [];
+                let seenKeys = new Set();
+    
+                rows.forEach(row => {
+                    let rawPhone = String(row['Phone'] || row['Số điện thoại'] || '').replace(/\D/g, '');
+                    if(rawPhone.length >= 9) {
+                        let cleanPhone = '0' + rawPhone.slice(-9);
+                        let projectName = row['Dự án'] || 'Không rõ';
+                        let uniqueKey = cleanPhone + '_' + projectName;
+                        
+                        if(!seenKeys.has(uniqueKey)) {
+                            seenKeys.add(uniqueKey);
+                            payload.push({ 
+                                id_kho: row['ID_Kho'] || null, 
+                                customer_name: row['Name'] || row['Tên'] || 'Khách hàng', 
+                                phone: cleanPhone, 
+                                project_name: projectName, 
+                                source: row['Nguồn'] || 'Import', 
+                                notes: row['Ghi chú'] || '' 
+                            });
+                        }
+                    }
+                });
+    
+                if(payload.length > 0) {
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang đẩy lên DB...';
+                    const { error } = await window.sbClient.from('marketing_leads').upsert(payload, { onConflict: 'phone,project_name', ignoreDuplicates: true });
+                    
+                    if(error) Swal.fire('Lỗi DB', error.message, 'error');
+                    else {
+                        Swal.fire('Thành Công', 'Đã bơm dữ liệu chuẩn hóa vào kho! (Bỏ qua trùng lặp SĐT + Dự án).', 'success');
+                        document.getElementById('inputSheetUrl').value = '';
+                    }
+                } else { Swal.fire('Cảnh báo', 'Không có SĐT hợp lệ nào để import!', 'warning'); }
+                
+                resetImportBtn(); loadAdminDashboard(); loadAvailableProjects();
+            },
+            error: function() { Swal.fire('Lỗi kết nối', 'Không thể đọc file CSV từ link.', 'error'); resetImportBtn(); }
+        });
+    }
+    
+    function resetImportBtn() { const btn = document.getElementById('btnImportData'); btn.innerHTML = '<i class="ti ti-cloud-upload me-2"></i> Import Data'; btn.disabled = false; }
 </script>
