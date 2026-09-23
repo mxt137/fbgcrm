@@ -746,10 +746,22 @@ async function loadFbTeams() {
         allFbTeams = data;
         data.forEach(t => {
             // Nạp vào List quản trị
-            list.innerHTML += `<a href="javascript:void(0)" onclick="selectFbTeam('${t.id}', '${t.name}')" class="list-group-item list-group-item-action fw-bold d-flex justify-content-between align-items-center border-0 mb-1 rounded-3" style="background: #f8fafc;">
-                <span class="text-dark"><i class="ti ti-folder text-warning me-2"></i>${t.name}</span>
-                <i class="ti ti-chevron-right text-muted"></i>
-            </a>`;
+            list.innerHTML += `
+              <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center border-0 mb-1 rounded-3 p-2" style="background: #f8fafc;">
+                  <div class="d-flex align-items-center flex-grow-1 fw-bold" style="cursor: pointer;" onclick="selectFbTeam('${t.id}', '${t.name}')">
+                      <i class="ti ti-folder text-warning me-2 fs-3"></i>
+                      <span class="text-dark">${t.name}</span>
+                  </div>
+                  <div class="d-flex gap-1 align-items-center">
+                      <button class="btn btn-sm btn-icon btn-outline-primary border-0" onclick="event.stopPropagation(); editFbTeam('${t.id}', '${t.name}')" title="Đổi tên dự án">
+                          <i class="ti ti-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-icon btn-outline-danger border-0" onclick="event.stopPropagation(); deleteFbTeam('${t.id}', '${t.name}')" title="Xóa dự án">
+                          <i class="ti ti-trash"></i>
+                      </button>
+                      <i class="ti ti-chevron-right text-muted ms-1" style="cursor: pointer;" onclick="selectFbTeam('${t.id}', '${t.name}')"></i>
+                  </div>
+              </div>`;
             
             // Nạp vào Select Box của Tool Test
             testSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
@@ -959,5 +971,85 @@ async function submitManualLead() {
         Swal.fire('Thành công', 'Data đã được thêm và hệ thống đang tự động phân bổ!', 'success');
         if (typeof loadAllFbLeads === 'function') loadAllFbLeads();
     } catch (err) { Swal.fire('Lỗi DB', err.message, 'error'); }
+}
+  
+// ==========================================
+// TÍNH NĂNG QUẢN TRỊ: SỬA TÊN & XÓA NHÓM
+// ==========================================
+async function editFbTeam(id, currentName) {
+    const { value: newName } = await Swal.fire({
+        title: 'Đổi Tên Nhóm',
+        input: 'text',
+        inputValue: currentName,
+        inputPlaceholder: 'Nhập tên chiến dịch/dự án mới...',
+        showCancelButton: true,
+        confirmButtonText: '<i class="ti ti-device-floppy me-1"></i> Lưu thay đổi',
+        cancelButtonText: 'Hủy',
+        confirmButtonColor: '#146654', // Đồng bộ màu thương hiệu
+        inputValidator: (value) => {
+            if (!value || value.trim() === '') return 'Tên nhóm không được để trống!';
+        }
+    });
+
+    if (newName && newName.trim() !== currentName) {
+        Swal.fire({ title: 'Đang cập nhật...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        // Gọi Supabase update
+        const { error } = await window.sbClient.from('fbleads_teams').update({ name: newName.trim() }).eq('id', id);
+        
+        if (error) {
+            Swal.fire('Lỗi DB', error.message, 'error');
+        } else {
+            Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đổi tên thành công', showConfirmButton: false, timer: 1500 });
+            loadFbTeams(); // Render lại danh sách bên trái
+            
+            // Cập nhật mượt mà tiêu đề Panel bên phải nếu đang mở đúng nhóm đó
+            if (currentSelectedTeam === id) {
+                document.getElementById('selectedTeamTitle').innerHTML = `<i class="ti ti-shield-check text-primary me-2"></i>Cấu hình nhóm: <span class="text-danger">${newName.trim()}</span>`;
+            }
+        }
+    }
+}
+
+function deleteFbTeam(id, teamName) {
+    Swal.fire({
+        title: `Xóa nhóm "${teamName}"?`,
+        html: "Hành động này sẽ xóa hoàn toàn nhóm khỏi FBG CRM.<br><b class='text-danger'>Lưu ý:</b> Chỉ có thể xóa nhóm chưa nhận Data hoặc chưa phân bổ nhân sự.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="ti ti-trash me-1"></i> Xóa vĩnh viễn',
+        cancelButtonText: 'Hủy bỏ'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Đang xóa...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
+            const { error } = await window.sbClient.from('fbleads_teams').delete().eq('id', id);
+            
+            if (error) {
+                // Bắt cứng mã lỗi Foreign Key 23503 của PostgreSQL để báo lỗi thân thiện cho Admin
+                if (error.code === '23503') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể xóa Nhóm!',
+                        text: 'Nhóm này đang chứa Data hoặc đang có Nhân sự tham gia bốc số. Vui lòng gỡ hết nhân sự ra khỏi nhóm trước khi xóa.',
+                        confirmButtonColor: '#146654'
+                    });
+                } else {
+                    Swal.fire('Lỗi Hệ Thống', error.message, 'error');
+                }
+            } else {
+                Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã xóa dọn dẹp', showConfirmButton: false, timer: 1500 });
+                loadFbTeams();
+                
+                // Ẩn ngay lập tức Panel bên phải nếu nhóm đang chọn bị xóa
+                if (currentSelectedTeam === id) {
+                    document.getElementById('teamMembersCard').style.display = 'none';
+                    currentSelectedTeam = null;
+                }
+            }
+        }
+    });
 }
 </script>
