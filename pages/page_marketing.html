@@ -199,50 +199,68 @@
     // ==========================================
     // 2. LOAD DROPDOWN DỰ ÁN TỪ SERVER
     // ==========================================
-    async function loadAvailableProjects() {
-        const selectEl = document.getElementById('selectLeadProject'); 
-        const btnGetLeads = document.getElementById('btnGetLeads');
-        if (!selectEl) return;
+    // 2. LOAD DROPDOWN DỰ ÁN TỪ SERVER (ĐÃ TỐI ƯU CÁ NHÂN HÓA SỐ LƯỢNG)
+async function loadAvailableProjects() {
+    const selectEl = document.getElementById('selectLeadProject'); 
+    const btnGetLeads = document.getElementById('btnGetLeads');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
+    selectEl.disabled = true;
+
+    try {
+        const myId = window.currentUser.id;
+        const role = window.currentUser.role;
+        const allowedProjects = window.currentUser.allowed_projects || [];
+
+        // TRUYỀN ID XUỐNG ĐỂ SERVER LOẠI BỎ NHỮNG SỐ MÌNH ĐÃ TỪNG BÁO CÁO
+        const { data, error } = await window.sbClient.rpc('get_marketing_project_stats', {
+            p_sales_id: myId
+        });
         
-        selectEl.innerHTML = '<option value="">Đang thống kê kho data...</option>';
-        selectEl.disabled = true;
-    
-        try {
-            const { data, error } = await window.sbClient.rpc('get_marketing_project_stats');
-            if (error) throw error;
-    
-            const role = window.currentUser.role;
-            const allowedProjects = window.currentUser.allowed_projects || [];
-            
-            if (!data || data.length === 0) {
-                selectEl.innerHTML = '<option value="">-- Kho dữ liệu đang trống --</option>';
-                btnGetLeads.disabled = true;
-                return;
-            }
-    
-            let filteredData = role === 'sales' ? data.filter(item => allowedProjects.includes(item.project_name)) : data;
-    
-            if (filteredData.length === 0) {
-                selectEl.innerHTML = '<option value="">-- Chưa được cấp quyền dự án --</option>';
-                btnGetLeads.disabled = true;
-                return;
-            }
-    
-            let options = (role !== 'sales' || filteredData.length > 1) ? '<option value="all">-- Chọn bốc ngẫu nhiên (Tất cả) --</option>' : '';
-            filteredData.forEach(item => {
-                options += `<option value="${item.project_name}">${item.project_name} (Còn ${item.total_available} số)</option>`;
-            });
-            
-            selectEl.innerHTML = options;
-            if (myPendingLeads.length === 0) btnGetLeads.disabled = false;
-    
-        } catch (err) {
-            console.error("Lỗi tải kho data:", err);
-            selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
-        } finally {
-            selectEl.disabled = false;
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            selectEl.innerHTML = '<option value="">-- Kho dữ liệu hiện tại đang trống --</option>';
+            btnGetLeads.disabled = true;
+            return;
         }
+
+        let filteredData = data;
+        if (role === 'sales') {
+            filteredData = data.filter(item => allowedProjects.includes(item.project_name));
+        }
+
+        if (filteredData.length === 0) {
+            selectEl.innerHTML = '<option value="">-- Bạn chưa được cấp quyền lấy dự án nào --</option>';
+            btnGetLeads.disabled = true;
+            return;
+        }
+
+        let options = '';
+        if (role !== 'sales' || filteredData.length > 1) {
+            options += '<option value="all">-- Chọn bốc ngẫu nhiên (Tất cả) --</option>';
+        }
+        
+        // HIỂN THỊ CHÍNH XÁC SỐ LƯỢNG DATA "CÒN LẠI DÀNH RIÊNG CHO MÌNH"
+        filteredData.forEach(item => {
+            options += `<option value="${item.project_name}">${item.project_name} (Còn ${item.total_available} số)</option>`;
+        });
+        
+        selectEl.innerHTML = options;
+        
+        // Cấu hình nút bốc số Quiet Luxury
+        if (myPendingLeads.length === 0) {
+            btnGetLeads.disabled = false;
+        }
+
+    } catch (err) {
+        console.error("Lỗi tải kho data:", err);
+        selectEl.innerHTML = '<option value="">Lỗi tải dữ liệu!</option>';
+    } finally {
+        selectEl.disabled = false;
     }
+}
     
     // ==========================================
     // 3. THỐNG KÊ ADMIN PANEL 
