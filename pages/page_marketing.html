@@ -504,16 +504,15 @@ async function loadAvailableProjects() {
         if (reason) submitQuickReport(leadId, reason);
     }
     
-    // 8. GHI NHẬN BÁO CÁO QUA RPC DATABASE VÀ TỰ ĐỘNG LƯU KHÁCH HÀNG
+    // 8. GHI NHẬN BÁO CÁO QUA RPC DATABASE VÀ TỰ ĐỘNG LƯU KHÁCH HÀNG (UX TỐI ƯU)
     async function submitQuickReport(leadId, reportType) {
         const card = document.getElementById('lead-card-' + leadId);
         card.style.opacity = '0.5'; 
         
         try {
             const myId = window.currentUser.id;
-            const myName = window.currentUser.full_name;
-    
-            // BƯỚC 1: NẾU LÀ TIỀM NĂNG -> TỰ ĐỘNG CHUYỂN HÓA THÀNH KHÁCH HÀNG TRƯỚC KHI BÁO CÁO
+            
+            // BƯỚC 1: NẾU LÀ TIỀM NĂNG -> TỰ ĐỘNG LƯU NGẦM VÀ GIỮ NGUYÊN MÀN HÌNH
             if (reportType === 'Tiềm năng') {
                 const leadData = myPendingLeads.find(l => l.id === leadId);
                 const vnTime = new Date().toISOString();
@@ -531,7 +530,7 @@ async function loadAvailableProjects() {
                 
                 if (insErr) throw insErr;
                 
-                // 1.2 Tự động tạo luôn Log Lịch sử chăm sóc
+                // 1.2 Tự động tạo Log Lịch sử chăm sóc
                 await window.sbClient.from('care_logs').insert([{
                     customer_id: newCus.id, 
                     member_id: myId, 
@@ -540,27 +539,14 @@ async function loadAvailableProjects() {
                     care_date: vnTime
                 }]);
     
-                // 1.3 Đã lưu khách an toàn -> Gọi RPC để nhả số ở kho Marketing
+                // 1.3 Nhả số ở kho Marketing
                 const { error } = await window.sbClient.rpc('report_marketing_lead', {
                     p_lead_id: leadId, p_sales_id: myId, p_report: reportType
                 });
                 if (error) throw error;
                 
                 Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã lưu an toàn vào Phễu Khách Hàng!', showConfirmButton: false, timer: 3000 });
-    
-                // 1.4 Chuyển sang trang Khách hàng và bật Modal ở chế độ XEM/SỬA
-                await switchPage('khachhang');
-                setTimeout(async () => {
-                    if (typeof openCustomerModal === 'function') {
-                        await openCustomerModal(newCus.id); // Truyền ID khách mới vào để Edit
-                        let fakeBtn = document.createElement('button');
-                        fakeBtn.setAttribute('data-bs-toggle', 'modal');
-                        fakeBtn.setAttribute('data-bs-target', '#modal-customer');
-                        document.body.appendChild(fakeBtn);
-                        fakeBtn.click();
-                        fakeBtn.remove();
-                    }
-                }, 600);
+                // Không gọi switchPage hay openCustomerModal ở đây nữa để giữ Sales ở lại nhịp gọi điện
     
             } else {
                 // BƯỚC 2: NẾU LÀ BỎ QUA HOẶC RÁC -> CHỈ CẦN GỌI RPC TRẢ SỐ
@@ -577,7 +563,8 @@ async function loadAvailableProjects() {
             await loadMyAssignedLeads();
             
             if (['admin', 'system', 'manager'].includes(window.currentUser.role)) { 
-                loadAdminDashboard(); loadAdminSalesStats(); 
+                loadAdminDashboard(); 
+                if (typeof loadAdminSalesStats === 'function') loadAdminSalesStats(); 
             }
             
         } catch (err) { 
