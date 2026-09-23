@@ -376,12 +376,20 @@ async function loadAvailableProjects() {
     // ==========================================
     // 5. QUẢN LÝ DATA ĐANG NỢ
     // ==========================================
+    // ==========================================
+    // 4. DANH SÁCH ĐANG NỢ CỦA SALES (CẬP NHẬT HIỂN THỊ NGUỒN)
+    // ==========================================
     async function loadMyAssignedLeads() {
         const container = document.getElementById('myLeadsContainer');
         const myId = window.currentUser.id;
     
+        // Truy vấn lấy dữ liệu Data đang nợ (chưa báo cáo)
         const { data, error } = await window.sbClient.from('marketing_leads')
-            .select('*').eq('assigned_to', myId).eq('status', 'Đã phát').is('quick_report', null).order('assigned_at', { ascending: false });
+            .select('*')
+            .eq('assigned_to', myId)
+            .eq('status', 'Đã phát')
+            .is('quick_report', null)
+            .order('assigned_at', { ascending: false });
     
         if (error) { container.innerHTML = '<div class="col-12 text-danger">Lỗi tải dữ liệu.</div>'; return; }
         myPendingLeads = data || [];
@@ -390,11 +398,14 @@ async function loadAvailableProjects() {
         const warning = document.getElementById('pendingWarning');
         const isProjectEmpty = document.getElementById('selectLeadProject').options.length === 0 || document.getElementById('selectLeadProject').value === "";
         
+        // Xử lý logic khóa nút bốc số nếu đang nợ data
         if (myPendingLeads.length > 0) {
-            btnGet.disabled = true; btnGet.innerHTML = '<i class="ti ti-lock me-2"></i> Phải xử lý xong số cũ';
+            btnGet.disabled = true; 
+            btnGet.innerHTML = '<i class="ti ti-lock me-2"></i> Phải xử lý xong số cũ';
             warning.style.display = 'block';
         } else if (!isProjectEmpty) {
-            btnGet.disabled = false; btnGet.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data Mới';
+            btnGet.disabled = false; 
+            btnGet.innerHTML = '<i class="ti ti-download me-2"></i> Nhận 10 Data Mới';
             warning.style.display = 'none';
         }
     
@@ -404,45 +415,53 @@ async function loadAvailableProjects() {
             return;
         }
     
+        // Render từng thẻ Data Khách hàng
         myPendingLeads.forEach((lead, index) => {
             const assignedTime = new Date(lead.assigned_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
             const col = document.createElement('div'); col.className = 'col-md-6';
             
+            // Render lịch sử nếu có
             let historyHtml = '';
             if (lead.report_history && lead.report_history.length > 0) {
-                historyHtml = '<div class="mt-1"><i class="ti ti-history me-1" style="color:#146654;"></i> Lịch sử xử lý: <span class="fst-italic text-dark">' + lead.report_history.join(' ➔ ') + '</span></div>';
+                historyHtml = `<div class="mt-2 pt-2 border-top"><i class="ti ti-history me-1 text-info"></i> Lịch sử xử lý: <span class="fst-italic text-dark">${lead.report_history.join(' ➔ ')}</span></div>`;
             }
     
             const loopCount = (lead.attempt_count || 0) + 1;
             const cName = lead.customer_name || 'Khách hàng';
             const pName = lead.project_name || 'Không rõ';
-            const notesHtml = lead.notes ? `<div><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : '';
+            
+            // Lấy nguồn từ Database, nếu rỗng thì để mặc định
+            const sourceName = lead.source || 'Kho Nội Bộ'; 
+            
+            const notesHtml = lead.notes ? `<div class="mb-1"><i class="ti ti-notes me-1 text-warning"></i> Ghi chú kho: <span class="fst-italic text-dark">${lead.notes}</span></div>` : '';
     
             col.innerHTML = `
-            <div class="lead-card p-3 h-100 d-flex flex-column" id="lead-card-${lead.id}">
+            <div class="lead-card p-3 h-100 d-flex flex-column shadow-sm" id="lead-card-${lead.id}" style="border-left: 4px solid #146654;">
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px;">Data #${index + 1} | Vòng lặp: ${loopCount}/3</span>
-                    <span class="text-muted" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
+                    <span class="badge bg-secondary-lt text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Data #${index + 1} | Vòng lặp: ${loopCount}/3</span>
+                    <span class="text-muted fw-medium" style="font-size: 11px;"><i class="ti ti-clock me-1"></i> Bốc lúc ${assignedTime}</span>
                 </div>
+                
                 <h4 class="mb-1" style="color: #146654; font-size: 18px; font-weight: 700;">${cName}</h4>
                 
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <div class="fs-3 fw-bold" style="color: #0f172a;"><i class="ti ti-phone-call me-1" style="color:#146654;"></i>${lead.phone}</div>
-                    <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
-                    <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="fs-3 fw-bold text-dark"><i class="ti ti-phone-call me-1" style="color: #146654;"></i>${lead.phone}</div>
+                    <a href="tel:${lead.phone}" class="btn btn-sm btn-outline-success quick-action-btn rounded-3" title="Gọi ngay"><i class="ti ti-phone text-success"></i> Gọi</a>
+                    <a href="https://zalo.me/${lead.phone}" target="_blank" class="btn btn-sm btn-outline-primary quick-action-btn rounded-3"><i class="ti ti-brand-hipchat text-primary"></i> Zalo</a>
                 </div>
     
-                <div class="text-muted mb-4" style="font-size: 13px;">
-                    <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-medium">${pName}</span></div>
+                <div class="text-muted mb-4" style="font-size: 13px; line-height: 1.6;">
+                    <div class="mb-1"><i class="ti ti-building-skyscraper me-1 text-danger"></i> Q/tâm: <span class="fw-bold text-dark">${pName}</span></div>
+                    <div class="mb-1"><i class="ti ti-world me-1 text-primary"></i> Nguồn: <span class="fw-medium text-dark">${sourceName}</span></div>
                     ${notesHtml}
                     ${historyHtml}
                 </div>
                 
                 <div class="mt-auto d-flex gap-2">
-                    <button class="btn btn-outline-danger btn-report flex-grow-1" onclick="handleRejection('${lead.id}')">
+                    <button class="btn btn-outline-danger btn-report flex-grow-1 fw-bold" onclick="handleRejection('${lead.id}')">
                         <i class="ti ti-phone-off fs-3"></i> BỎ QUA
                     </button>
-                    <button class="btn text-white btn-report flex-grow-1" style="background-color: #146654;" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
+                    <button class="btn text-white btn-report flex-grow-1 fw-bold shadow-sm" style="background-color: #146654;" onclick="submitQuickReport('${lead.id}', 'Tiềm năng')">
                         <i class="ti ti-star fs-3"></i> TIỀM NĂNG
                     </button>
                 </div>
