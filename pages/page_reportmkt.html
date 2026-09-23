@@ -137,231 +137,284 @@
   </div>
 </div>
 
-<script>
-  let repSalesMap = {}; 
-  let repCurrentPage = 1;
-  const repItemsPerPage = 100; 
-  let repTotalItems = 0;
-  let repSearchTimeout = null;
-
-  // ==========================================
-  // KHỞI TẠO MODULE (BẢO MẬT ROLE = SYSTEM)
-  // ==========================================
-  async function loadReportMktModule() {
-    // Kích hoạt giao diện tùy theo quyền
-    if (!window.currentUser || window.currentUser.role !== 'system') {
-      document.getElementById('reportContent').style.display = 'none';
-      document.getElementById('reportAccessDenied').style.display = 'block';
-      return;
-    }
-    
-    document.getElementById('reportAccessDenied').style.display = 'none';
-    document.getElementById('reportContent').style.display = 'block';
-
-    await fetchRepSalesList();
-    
-    // Tải dữ liệu song song để tăng tốc độ render
-    Promise.all([
-      fetchRepMktStats(),
-      fetchRepMktData()
-    ]);
-  }
-
-  // 1. Tải danh sách Sales
-  async function fetchRepSalesList() {
-    const { data } = await window.sbClient.from('safe_members').select('id, full_name').neq('role', 'system');
-    if (data) {
-      let opts = '<option value="all">Tất cả Sales tham gia bốc số</option>';
-      data.forEach(s => {
-        repSalesMap[s.id] = s.full_name;
-        opts += `<option value="${s.id}">${s.full_name}</option>`;
-      });
-      document.getElementById('repSalesFilter').innerHTML = opts;
-    }
-  }
-
-  // ==========================================
-  // 2. TẢI 5 CHỈ SỐ TỔNG QUAN (COUNT EXACT - Vượt qua 1000 limit)
-  // ==========================================
-  async function fetchRepMktStats() {
-    try {
-      Promise.all([
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }),
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('attempt_count.gt.0,status.neq.Chưa phát'), // Đã bốc
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null), // Đang nợ
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng'), // Chuyển tiềm năng
-        window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('status.eq.Rác,rejected_by.neq.{}') // Bị loại bỏ
-      ]).then(([resTotal, resDrawn, resPending, resPotential, resRejected]) => {
-        document.getElementById('repMktTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
-        document.getElementById('repMktDrawn').innerText = new Intl.NumberFormat().format(resDrawn.count || 0);
-        document.getElementById('repMktPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
-        document.getElementById('repMktPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
-        document.getElementById('repMktRejected').innerText = new Intl.NumberFormat().format(resRejected.count || 0);
-      });
-    } catch (err) { console.error('Lỗi tải Metrics:', err); }
-  }
-
-  // 3. Tải Data Bảng
-  async function fetchRepMktData() {
-    const tbody = document.getElementById('repTableBody');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
-    
-    const from = (repCurrentPage - 1) * repItemsPerPage;
-    const to = from + repItemsPerPage - 1;
-
-    let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' })
-      .or('attempt_count.gt.0,status.neq.Chưa phát');
-
-    const keyword = document.getElementById('repSearchInput').value.trim().replace(/\s+/g, '');
-    if (keyword) {
-      query = query.or(`phone.ilike.%${keyword}%,customer_name.ilike.%${keyword}%`);
-    }
-
-    const statusFilter = document.getElementById('repStatusFilter').value;
-    if (statusFilter === 'Tiềm năng') query = query.eq('quick_report', 'Tiềm năng');
-    else if (statusFilter === 'Đang nợ') query = query.eq('status', 'Đã phát').is('quick_report', null);
-    else if (statusFilter === 'Bỏ qua') {
-      query = query.or('status.eq.Rác,quick_report.in.(Không nghe máy,Không có nhu cầu,Sai số / Nhầm người,Số Rác / Thuê bao)');
-    }
-
-    const salesId = document.getElementById('repSalesFilter').value;
-    if (salesId !== 'all') {
-      query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
-    }
-
-    // Sắp xếp theo updated_at để đưa các tương tác mới nhất lên đầu
-    const { data, error, count } = await query
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .order('assigned_at', { ascending: false })
-      .range(from, to);
-
-    if (error) { tbody.innerHTML = `<tr><td colspan="6" class="text-danger text-center">Lỗi: ${error.message}</td></tr>`; return; }
-    
-    repTotalItems = count || 0;
-    
-    if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Không có dữ liệu Marketing nào đang được xử lý.</td></tr>';
-      document.getElementById('repPaginationControls').innerHTML = '';
-      return;
-    }
-
-    tbody.innerHTML = '';
-    data.forEach((lead, index) => {
-      let journeyHtml = '';
-      
-      // Xử lý huy hiệu những người đã từ chối
-      if (lead.rejected_by && lead.rejected_by.length > 0) {
-        lead.rejected_by.forEach(rId => {
-          const sName = repSalesMap[rId] || 'Nhân sự cũ';
-          journeyHtml += `<div class="journey-badge"><span class="text-danger">${sName}</span> <i class="ti ti-hand-stop ms-1 text-danger" title="Bỏ qua"></i></div> <i class="ti ti-chevron-right journey-arrow"></i> `;
-        });
-      }
-      
-      // Xử lý huy hiệu người đang phụ trách hiện tại
-      if (lead.assigned_to) {
-        const sName = repSalesMap[lead.assigned_to] || 'Nhân sự cũ';
-        if (lead.quick_report === 'Tiềm năng') {
-          journeyHtml += `<div class="journey-badge border-success bg-green-lt"><span class="text-success fw-bold">${sName}</span> <i class="ti ti-star-filled ms-1 text-success"></i></div>`;
-        } else if (lead.status === 'Đã phát' && !lead.quick_report) {
-          journeyHtml += `<div class="journey-badge border-warning bg-orange-lt"><span class="text-warning fw-bold">${sName}</span> <i class="ti ti-clock-hour-4 ms-1 text-warning" title="Đang giữ"></i></div>`;
-        } else {
-          journeyHtml += `<div class="journey-badge border-danger bg-red-lt"><span class="text-danger fw-bold">${sName}</span> <i class="ti ti-ban ms-1 text-danger"></i></div>`;
-        }
-      } else if (lead.status === 'Rác') {
-         journeyHtml += `<div class="journey-badge border-secondary bg-secondary-lt"><span class="text-muted fw-bold">HỆ THỐNG GẮN RÁC</span> <i class="ti ti-trash ms-1 text-secondary"></i></div>`;
-      } else {
-         journeyHtml += `<div class="journey-badge border-primary bg-blue-lt"><span class="text-primary fw-bold">TRẢ VỀ KHO (CHỜ PHÁT)</span></div>`;
-      }
-
-      let attemptsCount = lead.attempt_count || 1;
-      let reportDetailsHtml = `
-        <div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed #cbd5e1; font-size: 12px;">
-          <div class="d-flex align-items-center mb-1">
-            <i class="ti ti-repeat text-muted me-2"></i> 
-            <span class="text-muted me-1">Lượt bốc số:</span> <strong class="text-primary">${attemptsCount} lần</strong>
-          </div>
-          <div class="d-flex align-items-start">
-            <i class="ti ti-message-report text-primary me-2 mt-1"></i> 
-            <div>
-              <span class="text-muted me-1">Phản hồi cuối:</span> 
-              <strong class="text-danger">${lead.quick_report || 'Đang xử lý / Chưa có báo cáo'}</strong>
-            </div>
-          </div>
-        </div>
-      `;
-
-      const notesHtml = lead.notes 
-        ? `<div class="mt-1 text-muted" style="font-size: 11px;"><i class="ti ti-notes text-warning me-1"></i><span class="fst-italic text-dark">${lead.notes}</span></div>` 
-        : '';
-
-      let finalStatus = '';
-      if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold px-2 py-1">WIN (Tiềm năng)</span>';
-      else if (lead.status === 'Rác' || (lead.attempt_count >= 3)) finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Loại bỏ)</span>';
-      else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold px-2 py-1">PENDING (Đang nợ)</span>';
-      else finalStatus = `<span class="badge bg-secondary text-white fw-bold px-2 py-1">${lead.status || 'Chưa rõ'}</span>`;
-
-      // Lấy thời gian cập nhật mới nhất
-      const dateObj = new Date(lead.updated_at || lead.assigned_at || lead.created_at);
-      const timeStr = `<span class="fw-bold" style="color: #146654;">${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}</span><br><span class="text-muted" style="font-size: 11px;">${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}</span>`;
-
-      const stt = (repCurrentPage - 1) * repItemsPerPage + index + 1;
-
-      tbody.innerHTML += `
-        <tr>
-          <td class="text-center text-muted fw-bold">${stt}</td>
-          <td>
-            <div class="fw-bold text-dark" style="font-size: 14px;">${lead.customer_name || 'Chưa cập nhật'}</div>
-            <div class="text-primary fw-bold mb-1" style="font-size: 14px;"><i class="ti ti-phone me-1"></i>${lead.phone}</div>
-            ${notesHtml}
-          </td>
-          <td>
-            <div class="fw-medium text-dark" style="font-size: 12px;"><i class="ti ti-building-skyscraper me-1 text-muted"></i>${lead.project_name || 'Không rõ'}</div>
-            <div class="text-muted" style="font-size: 11px;"><i class="ti ti-world me-1"></i>${lead.source || 'Import'}</div>
-          </td>
-          <td style="white-space: normal;">
-            <div class="mb-1">${journeyHtml}</div>
-            ${reportDetailsHtml}
-          </td>
-          <td class="text-center">${finalStatus}</td>
-          <td class="text-center" style="font-size: 13px;">${timeStr}</td>
-        </tr>
-      `;
-    });
-
-    renderRepPagination();
-  }
-
-  function renderRepPagination() {
-    const totalPages = Math.ceil(repTotalItems / repItemsPerPage) || 1;
-    const paginationEl = document.getElementById('repPaginationControls');
-    
-    if (repTotalItems === 0) { paginationEl.innerHTML = ''; return; }
-    
-    const fromCount = (repCurrentPage - 1) * repItemsPerPage + 1;
-    const toCount = Math.min(repCurrentPage * repItemsPerPage, repTotalItems);
-
-    paginationEl.innerHTML = `
-      <span class="text-muted fw-medium" style="font-size: 13px;">Hiển thị <strong>${fromCount}</strong> - <strong>${toCount}</strong> / <strong>${repTotalItems}</strong> Data báo cáo</span>
-      <div class="btn-group ms-auto">
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeRepPage(-1)" ${repCurrentPage === 1 ? 'disabled' : ''}><i class="ti ti-chevron-left me-1"></i> Trước</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled style="color: var(--tblr-primary); font-weight: bold;">Trang ${repCurrentPage}/${totalPages}</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeRepPage(1)" ${repCurrentPage === totalPages ? 'disabled' : ''}>Sau <i class="ti ti-chevron-right ms-1"></i></button>
+<!-- MODAL XEM CHI TIẾT HÀNH TRÌNH CỦA 1 SỐ ĐIỆN THOẠI -->
+<div class="modal modal-blur fade" id="modal-lead-timeline" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content shadow-lg border-0 rounded-3">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #146654 0%, #0d4639 100%);">
+        <h5 class="modal-title fw-bold fs-3"><i class="ti ti-route me-2"></i> Lịch Sử Khai Thác Data</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-    `;
-  }
+      <div class="modal-body p-4 bg-light">
+        <div class="d-flex align-items-center mb-4 p-3 bg-white border rounded-3 shadow-sm">
+            <div class="fs-1 fw-bold me-4" style="color: #146654;" id="tlPhone">090xxxxxxx</div>
+            <div class="border-start ps-4">
+                <div class="text-muted fw-bold" style="font-size: 12px;">KHÁCH HÀNG</div>
+                <div class="fw-bold fs-3 text-dark" id="tlName">Nguyễn Văn A</div>
+            </div>
+            <div class="border-start ps-4 ms-4">
+                <div class="text-muted fw-bold" style="font-size: 12px;">DỰ ÁN TƯƠNG TÁC</div>
+                <div class="fw-bold fs-3 text-dark" id="tlProject">Tên dự án</div>
+            </div>
+        </div>
+        
+        <h4 class="fw-bold text-dark mb-3"><i class="ti ti-history text-primary me-2"></i>Dòng thời gian (Timeline)</h4>
+        <div class="bg-white p-3 border rounded-3 shadow-sm" style="max-height: 400px; overflow-y: auto;">
+            <ul class="list list-timeline" id="tlHistoryContainer">
+                <!-- Javascript sẽ vẽ timeline vào đây -->
+            </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  function changeRepPage(direction) { repCurrentPage += direction; fetchRepMktData(); }
-  
-  function applyReportFilter() { 
-    clearTimeout(repSearchTimeout); 
-    repSearchTimeout = setTimeout(() => { repCurrentPage = 1; fetchRepMktData(); }, 500); 
-  }
-  
-  function resetReportFilter() {
-    document.getElementById('repSearchInput').value = '';
-    document.getElementById('repSalesFilter').value = 'all';
-    document.getElementById('repStatusFilter').value = 'all';
-    repCurrentPage = 1;
-    fetchRepMktData();
-  }
+<script>
+    let repSalesMap = {}; 
+    let repCurrentPage = 1;
+    const repItemsPerPage = 100; 
+    let repTotalItems = 0;
+    let repSearchTimeout = null;
+    let globalRepLeadsData = []; // BIẾN MỚI: Lưu trữ data để vẽ Modal
+
+    // ... (Giữ nguyên các hàm loadReportMktModule, fetchRepSalesList, fetchRepMktStats như cũ) ...
+    async function loadReportMktModule() {
+        if (!window.currentUser || window.currentUser.role !== 'system') {
+            document.getElementById('reportContent').style.display = 'none';
+            document.getElementById('reportAccessDenied').style.display = 'block';
+            return;
+        }
+        document.getElementById('reportAccessDenied').style.display = 'none';
+        document.getElementById('reportContent').style.display = 'block';
+        await fetchRepSalesList();
+        Promise.all([fetchRepMktStats(), fetchRepMktData()]);
+    }
+
+    async function fetchRepSalesList() {
+        const { data } = await window.sbClient.from('safe_members').select('id, full_name').neq('role', 'system');
+        if (data) {
+            let opts = '<option value="all">Tất cả Sales tham gia bốc số</option>';
+            data.forEach(s => {
+                repSalesMap[s.id] = s.full_name;
+                opts += `<option value="${s.id}">${s.full_name}</option>`;
+            });
+            document.getElementById('repSalesFilter').innerHTML = opts;
+        }
+    }
+
+    async function fetchRepMktStats() {
+        try {
+            Promise.all([
+                window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }),
+                window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('attempt_count.gt.0,status.neq.Chưa phát'),
+                window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('status', 'Đã phát').is('quick_report', null),
+                window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).eq('quick_report', 'Tiềm năng'),
+                window.sbClient.from('marketing_leads').select('id', { count: 'exact', head: true }).or('status.eq.Hoàn thành,rejected_by.neq.{}') // Sửa Rác thành Hoàn thành
+            ]).then(([resTotal, resDrawn, resPending, resPotential, resRejected]) => {
+                document.getElementById('repMktTotal').innerText = new Intl.NumberFormat().format(resTotal.count || 0);
+                document.getElementById('repMktDrawn').innerText = new Intl.NumberFormat().format(resDrawn.count || 0);
+                document.getElementById('repMktPending').innerText = new Intl.NumberFormat().format(resPending.count || 0);
+                document.getElementById('repMktPotential').innerText = new Intl.NumberFormat().format(resPotential.count || 0);
+                document.getElementById('repMktRejected').innerText = new Intl.NumberFormat().format(resRejected.count || 0);
+            });
+        } catch (err) { console.error('Lỗi tải Metrics:', err); }
+    }
+
+    // NÂNG CẤP HÀM FETCH ĐỂ VẼ NÚT XEM CHI TIẾT
+    async function fetchRepMktData() {
+        const tbody = document.getElementById('repTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm text-danger me-2"></span> Đang tải dữ liệu hành trình...</td></tr>';
+        
+        const from = (repCurrentPage - 1) * repItemsPerPage;
+        const to = from + repItemsPerPage - 1;
+
+        let query = window.sbClient.from('marketing_leads').select('*', { count: 'exact' })
+            .or('attempt_count.gt.0,status.neq.Chưa phát');
+
+        const keyword = document.getElementById('repSearchInput').value.trim().replace(/\s+/g, '');
+        if (keyword) {
+            query = query.or(`phone.ilike.%${keyword}%,customer_name.ilike.%${keyword}%`);
+        }
+
+        const statusFilter = document.getElementById('repStatusFilter').value;
+        if (statusFilter === 'Tiềm năng') query = query.eq('quick_report', 'Tiềm năng');
+        else if (statusFilter === 'Đang nợ') query = query.eq('status', 'Đã phát').is('quick_report', null);
+        else if (statusFilter === 'Bỏ qua') {
+            query = query.or('status.eq.Hoàn thành,quick_report.in.(Không nghe máy,Không có nhu cầu,Sai số / Nhầm người,Số Rác / Thuê bao)');
+        }
+
+        const salesId = document.getElementById('repSalesFilter').value;
+        if (salesId !== 'all') {
+            query = query.or(`assigned_to.eq.${salesId},rejected_by.cs.{${salesId}}`);
+        }
+
+        const { data, error, count } = await query
+            .order('updated_at', { ascending: false, nullsFirst: false })
+            .order('assigned_at', { ascending: false })
+            .range(from, to);
+
+        if (error) { tbody.innerHTML = `<tr><td colspan="6" class="text-danger text-center">Lỗi: ${error.message}</td></tr>`; return; }
+        
+        repTotalItems = count || 0;
+        globalRepLeadsData = data || []; // LƯU VÀO MẢNG TOÀN CỤC
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Không có dữ liệu Marketing nào đang được xử lý.</td></tr>';
+            document.getElementById('repPaginationControls').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.forEach((lead, index) => {
+            let journeyHtml = '';
+            
+            if (lead.rejected_by && lead.rejected_by.length > 0) {
+                lead.rejected_by.forEach(rId => {
+                    const sName = repSalesMap[rId] || 'Nhân sự cũ';
+                    journeyHtml += `<div class="journey-badge"><span class="text-danger">${sName}</span> <i class="ti ti-hand-stop ms-1 text-danger" title="Bỏ qua"></i></div> <i class="ti ti-chevron-right journey-arrow"></i> `;
+                });
+            }
+            
+            if (lead.assigned_to) {
+                const sName = repSalesMap[lead.assigned_to] || 'Nhân sự cũ';
+                if (lead.quick_report === 'Tiềm năng') {
+                    journeyHtml += `<div class="journey-badge border-success bg-green-lt"><span class="text-success fw-bold">${sName}</span> <i class="ti ti-star-filled ms-1 text-success"></i></div>`;
+                } else if (lead.status === 'Đã phát' && !lead.quick_report) {
+                    journeyHtml += `<div class="journey-badge border-warning bg-orange-lt"><span class="text-warning fw-bold">${sName}</span> <i class="ti ti-clock-hour-4 ms-1 text-warning" title="Đang giữ"></i></div>`;
+                } else {
+                    journeyHtml += `<div class="journey-badge border-danger bg-red-lt"><span class="text-danger fw-bold">${sName}</span> <i class="ti ti-ban ms-1 text-danger"></i></div>`;
+                }
+            } else if (lead.status === 'Hoàn thành') {
+                journeyHtml += `<div class="journey-badge border-secondary bg-secondary-lt"><span class="text-muted fw-bold">HỆ THỐNG GẮN RÁC (Đã Lọc)</span> <i class="ti ti-trash ms-1 text-secondary"></i></div>`;
+            } else {
+                journeyHtml += `<div class="journey-badge border-primary bg-blue-lt"><span class="text-primary fw-bold">TRẢ VỀ KHO (CHỜ PHÁT)</span></div>`;
+            }
+
+            let attemptsCount = lead.attempt_count || 1;
+            let reportDetailsHtml = `
+                <div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed #cbd5e1; font-size: 12px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="ti ti-repeat text-muted me-1"></i> <span class="text-muted">Vòng lặp:</span> <strong class="text-primary">${attemptsCount}/5</strong>
+                        </div>
+                        <!-- NÚT XEM CHI TIẾT MỚI -->
+                        <button class="btn btn-sm text-white fw-bold" style="background: #146654;" data-bs-toggle="modal" data-bs-target="#modal-lead-timeline" onclick="viewLeadTimeline('${lead.id}')">
+                            <i class="ti ti-list-details me-1"></i> Chi tiết
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            let finalStatus = '';
+            if (lead.quick_report === 'Tiềm năng') finalStatus = '<span class="badge bg-success text-white fw-bold px-2 py-1">WIN (Tiềm năng)</span>';
+            else if (lead.status === 'Hoàn thành' || (lead.attempt_count >= 5)) finalStatus = '<span class="badge bg-danger text-white fw-bold px-2 py-1">LOSE (Loại bỏ)</span>';
+            else if (lead.status === 'Đã phát') finalStatus = '<span class="badge bg-warning text-white fw-bold px-2 py-1">PENDING (Đang nợ)</span>';
+            else finalStatus = `<span class="badge bg-secondary text-white fw-bold px-2 py-1">${lead.status || 'Chưa rõ'}</span>`;
+
+            const dateObj = new Date(lead.updated_at || lead.assigned_at || lead.created_at);
+            const timeStr = `<span class="fw-bold" style="color: #146654;">${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}</span><br><span class="text-muted" style="font-size: 11px;">${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}</span>`;
+
+            const stt = (repCurrentPage - 1) * repItemsPerPage + index + 1;
+
+            tbody.innerHTML += `
+            <tr>
+                <td class="text-center text-muted fw-bold">${stt}</td>
+                <td>
+                    <div class="fw-bold text-dark" style="font-size: 14px;">${lead.customer_name || 'Chưa cập nhật'}</div>
+                    <div class="text-primary fw-bold mb-1" style="font-size: 14px;"><i class="ti ti-phone me-1"></i>${lead.phone}</div>
+                </td>
+                <td>
+                    <div class="fw-medium text-dark" style="font-size: 12px;"><i class="ti ti-building-skyscraper me-1 text-muted"></i>${lead.project_name || 'Không rõ'}</div>
+                    <div class="text-muted" style="font-size: 11px;"><i class="ti ti-world me-1"></i>${lead.source || 'Import'}</div>
+                </td>
+                <td style="white-space: normal; min-width: 350px;">
+                    <div class="mb-1">${journeyHtml}</div>
+                    ${reportDetailsHtml}
+                </td>
+                <td class="text-center">${finalStatus}</td>
+                <td class="text-center" style="font-size: 13px;">${timeStr}</td>
+            </tr>
+            `;
+        });
+        renderRepPagination();
+    }
+
+    // HÀM MỚI: VẼ TIMELINE VÀO MODAL
+    function viewLeadTimeline(leadId) {
+        const lead = globalRepLeadsData.find(l => l.id === leadId);
+        if (!lead) return;
+
+        document.getElementById('tlPhone').innerText = lead.phone;
+        document.getElementById('tlName').innerText = lead.customer_name || 'Khách hàng (Trống)';
+        document.getElementById('tlProject').innerText = lead.project_name || 'Không rõ';
+
+        const tlContainer = document.getElementById('tlHistoryContainer');
+        tlContainer.innerHTML = '';
+
+        if (!lead.report_history || lead.report_history.length === 0) {
+            tlContainer.innerHTML = '<li><div class="text-muted text-center py-4">Số này vừa được Import, chưa có Sales nào tương tác.</div></li>';
+            return;
+        }
+
+        // Đảo ngược mảng để báo cáo mới nhất hiện lên trên cùng
+        const historyRev = [...lead.report_history].reverse();
+        
+        historyRev.forEach(entry => {
+            // Nhờ hàm RPC mới ở Bước 1, entry giờ có dạng: "HH:mm DD/MM/YYYY - Tên Sales: Nội dung"
+            let timeStr = "Thời gian không rõ";
+            let actionStr = entry;
+            let iconClass = "bg-warning";
+
+            if (entry.includes(" - ")) {
+                const parts = entry.split(" - ");
+                timeStr = parts[0];
+                actionStr = parts.slice(1).join(" - ");
+            }
+
+            if (actionStr.includes('Tiềm năng')) iconClass = "bg-success";
+            else if (actionStr.includes('Không nghe máy') || actionStr.includes('Số Rác')) iconClass = "bg-danger";
+
+            tlContainer.innerHTML += `
+            <li>
+                <div class="list-timeline-icon ${iconClass}"></div>
+                <div class="list-timeline-content" style="width: 100%;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold text-dark"><i class="ti ti-user me-1 text-muted"></i> Báo cáo từ Sales</span>
+                        <span class="text-muted fw-bold" style="font-size: 11px;">${timeStr}</span>
+                    </div>
+                    <div class="p-2 rounded-3 border bg-light mt-1 text-dark" style="font-size: 13px;">
+                        ${actionStr}
+                    </div>
+                </div>
+            </li>
+            `;
+        });
+    }
+
+    // Các hàm phân trang giữ nguyên
+    function renderRepPagination() {
+        const totalPages = Math.ceil(repTotalItems / repItemsPerPage) || 1;
+        const paginationEl = document.getElementById('repPaginationControls');
+        if (repTotalItems === 0) { paginationEl.innerHTML = ''; return; }
+        const fromCount = (repCurrentPage - 1) * repItemsPerPage + 1;
+        const toCount = Math.min(repCurrentPage * repItemsPerPage, repTotalItems);
+
+        paginationEl.innerHTML = `
+        <span class="text-muted fw-medium" style="font-size: 13px;">Hiển thị <strong>${fromCount}</strong> - <strong>${toCount}</strong> / <strong>${repTotalItems}</strong> Data báo cáo</span>
+        <div class="btn-group ms-auto">
+            <button class="btn btn-sm btn-outline-secondary" onclick="changeRepPage(-1)" ${repCurrentPage === 1 ? 'disabled' : ''}><i class="ti ti-chevron-left me-1"></i> Trước</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled style="color: #146654; font-weight: bold;">Trang ${repCurrentPage}/${totalPages}</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="changeRepPage(1)" ${repCurrentPage === totalPages ? 'disabled' : ''}>Sau <i class="ti ti-chevron-right ms-1"></i></button>
+        </div>
+        `;
+    }
+
+    function changeRepPage(direction) { repCurrentPage += direction; fetchRepMktData(); }
+    function applyReportFilter() { clearTimeout(repSearchTimeout); repSearchTimeout = setTimeout(() => { repCurrentPage = 1; fetchRepMktData(); }, 500); }
+    function resetReportFilter() {
+        document.getElementById('repSearchInput').value = '';
+        document.getElementById('repSalesFilter').value = 'all';
+        document.getElementById('repStatusFilter').value = 'all';
+        repCurrentPage = 1; fetchRepMktData();
+    }
 </script>
