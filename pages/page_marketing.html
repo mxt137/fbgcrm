@@ -504,67 +504,86 @@ async function loadAvailableProjects() {
         if (reason) submitQuickReport(leadId, reason);
     }
     
+    // 8. GHI NHẬN BÁO CÁO QUA RPC DATABASE VÀ TỰ ĐỘNG LƯU KHÁCH HÀNG
     async function submitQuickReport(leadId, reportType) {
         const card = document.getElementById('lead-card-' + leadId);
         card.style.opacity = '0.5'; 
+        
         try {
             const myId = window.currentUser.id;
             const myName = window.currentUser.full_name;
     
-            const { error } = await window.sbClient.rpc('report_marketing_lead', {
-                p_lead_id: leadId, p_sales_id: myId, p_report: reportType
-            });
-    
-            if (error) throw error;
-    
+            // BƯỚC 1: NẾU LÀ TIỀM NĂNG -> TỰ ĐỘNG CHUYỂN HÓA THÀNH KHÁCH HÀNG TRƯỚC KHI BÁO CÁO
             if (reportType === 'Tiềm năng') {
                 const leadData = myPendingLeads.find(l => l.id === leadId);
-                await switchPage('khachhang');
+                const vnTime = new Date().toISOString();
                 
+                // 1.1 Tự động Insert thẳng vào bảng Customers (Khách hàng cá nhân)
+                const { data: newCus, error: insErr } = await window.sbClient.from('customers').insert([{
+                    full_name: leadData.customer_name || 'Khách hàng',
+                    phone: leadData.phone,
+                    source: leadData.source || 'Facebook Ads',
+                    data_source: 'Data Công ty',
+                    lead_status: 'potential',
+                    assigned_to: myId,
+                    notes: '[Từ Kho Data Marketing - Dự án: ' + (leadData.project_name || 'Không rõ') + ']\n'
+                }]).select().single();
+                
+                if (insErr) throw insErr;
+                
+                // 1.2 Tự động tạo luôn Log Lịch sử chăm sóc
+                await window.sbClient.from('care_logs').insert([{
+                    customer_id: newCus.id, 
+                    member_id: myId, 
+                    interaction_type: 'Tạo mới',
+                    content: `Chuyển đổi thành công từ Kho Marketing.\nNguồn: ${leadData.source || 'Facebook Ads'}. Kho: Data Công ty\nQuan tâm dự án: ${leadData.project_name || 'Không rõ'}`, 
+                    care_date: vnTime
+                }]);
+    
+                // 1.3 Đã lưu khách an toàn -> Gọi RPC để nhả số ở kho Marketing
+                const { error } = await window.sbClient.rpc('report_marketing_lead', {
+                    p_lead_id: leadId, p_sales_id: myId, p_report: reportType
+                });
+                if (error) throw error;
+                
+                Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã lưu an toàn vào Phễu Khách Hàng!', showConfirmButton: false, timer: 3000 });
+    
+                // 1.4 Chuyển sang trang Khách hàng và bật Modal ở chế độ XEM/SỬA
+                await switchPage('khachhang');
                 setTimeout(async () => {
                     if (typeof openCustomerModal === 'function') {
-                        await openCustomerModal(); 
+                        await openCustomerModal(newCus.id); // Truyền ID khách mới vào để Edit
                         let fakeBtn = document.createElement('button');
                         fakeBtn.setAttribute('data-bs-toggle', 'modal');
                         fakeBtn.setAttribute('data-bs-target', '#modal-customer');
                         document.body.appendChild(fakeBtn);
                         fakeBtn.click();
                         fakeBtn.remove();
-                        
-                        setTimeout(() => {
-                            document.getElementById('cusName').value = leadData.customer_name || '';
-                            document.getElementById('cusPhone').value = leadData.phone || '';
-                            
-                            const sourceVal = leadData.source || 'Khác';
-                            const sourceSelect = document.getElementById('cusSource');
-                            if (sourceSelect && !sourceSelect.querySelector('option[value="' + sourceVal + '"]')) {
-                                sourceSelect.insertAdjacentHTML('beforeend', `<option value="${sourceVal}">${sourceVal}</option>`);
-                            }
-                            if(sourceSelect) sourceSelect.value = sourceVal; 
-    
-                            document.getElementById('cusStatus').value = 'potential'; 
-                            
-                            const assignInput = document.getElementById('cusAssigned');
-                            if (assignInput && !assignInput.querySelector('option[value="' + myId + '"]')) {
-                                assignInput.insertAdjacentHTML('beforeend', `<option value="${myId}">${myName}</option>`);
-                            }
-                            if(assignInput) assignInput.value = myId; 
-                            
-                            document.getElementById('cusNotes').value = '[Từ Kho Data Marketing - Dự án: ' + (leadData.project_name || 'Không rõ') + ']\n';
-                            document.getElementById('cusNotes').focus();
-                        }, 400); 
                     }
-                }, 300);
+                }, 600);
+    
+            } else {
+                // BƯỚC 2: NẾU LÀ BỎ QUA HOẶC RÁC -> CHỈ CẦN GỌI RPC TRẢ SỐ
+                const { error } = await window.sbClient.rpc('report_marketing_lead', {
+                    p_lead_id: leadId, p_sales_id: myId, p_report: reportType
+                });
+                if (error) throw error;
+                
+                Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã báo cáo: ' + reportType, showConfirmButton: false, timer: 3000 });
             }
     
-            Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Đã báo cáo: ' + reportType, showConfirmButton: false, timer: 3000 });
+            // Dọn dẹp giao diện Data đang nợ
             myPendingLeads = myPendingLeads.filter(l => l.id !== leadId);
             await loadMyAssignedLeads();
             
             if (['admin', 'system', 'manager'].includes(window.currentUser.role)) { 
                 loadAdminDashboard(); loadAdminSalesStats(); 
             }
-        } catch (err) { Swal.fire('Lỗi', err.message, 'error'); card.style.opacity = '1'; }
+            
+        } catch (err) { 
+            Swal.fire('Lỗi Hệ Thống', err.message, 'error'); 
+            card.style.opacity = '1'; 
+        }
     }
     
     async function triggerQuickSearch() {
