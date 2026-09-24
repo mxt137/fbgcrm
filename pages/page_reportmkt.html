@@ -291,16 +291,21 @@
             }
 
             let attemptsCount = lead.attempt_count || 1;
+            // Bổ sung nút Xóa linh hoạt cạnh nút Chi tiết
             let reportDetailsHtml = `
                 <div class="mt-2 p-2 rounded" style="background: rgba(20, 102, 84, 0.04); border: 1px dashed #cbd5e1; font-size: 12px;">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <i class="ti ti-repeat text-muted me-1"></i> <span class="text-muted">Vòng lặp:</span> <strong class="text-primary">${attemptsCount}/5</strong>
                         </div>
-                        <!-- NÚT XEM CHI TIẾT MỚI -->
-                        <button class="btn btn-sm text-white fw-bold" style="background: #146654;" data-bs-toggle="modal" data-bs-target="#modal-lead-timeline" onclick="viewLeadTimeline('${lead.id}')">
-                            <i class="ti ti-list-details me-1"></i> Chi tiết
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm text-white fw-bold shadow-sm" style="background: #146654;" data-bs-toggle="modal" data-bs-target="#modal-lead-timeline" onclick="viewLeadTimeline('${lead.id}')">
+                                <i class="ti ti-list-details me-1"></i> Chi tiết
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm" title="Xóa vĩnh viễn data này khỏi hệ thống bốc số" onclick="deleteMarketingLead('${lead.id}')">
+                                <i class="ti ti-trash"></i> Xóa
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -416,5 +421,47 @@
         document.getElementById('repSalesFilter').value = 'all';
         document.getElementById('repStatusFilter').value = 'all';
         repCurrentPage = 1; fetchRepMktData();
+    }
+    // ==========================================
+    // HÀM MỚI: XÓA DATA KHỎI KHO MARKETING VĨNH VIỄN
+    // ==========================================
+    function deleteMarketingLead(leadId) {
+        Swal.fire({
+            title: 'Xóa vĩnh viễn Data này?',
+            html: "Data sẽ bị xóa hoàn toàn khỏi kho bốc số Marketing.<br><span class='text-danger fw-bold'>Hành động này không thể hoàn tác!</span>",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48', // Màu đỏ cảnh báo
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="ti ti-trash me-1"></i> Xóa vĩnh viễn',
+            cancelButtonText: 'Hủy bỏ'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    // Gọi SDK xóa trực tiếp record bằng Primary Key (id)
+                    const { error } = await window.sbClient
+                        .from('marketing_leads')
+                        .delete()
+                        .eq('id', leadId);
+
+                    if (error) throw error;
+
+                    Swal.fire({ 
+                        toast: true, 
+                        position: 'bottom-end', 
+                        icon: 'success', 
+                        title: 'Đã dọn dẹp Data khỏi hệ thống!', 
+                        showConfirmButton: false, 
+                        timer: 3000 
+                    });
+                    
+                    // Tải lại dữ liệu biểu đồ và bảng ngay lập tức để đồng bộ UI
+                    fetchRepMktStats();
+                    fetchRepMktData();
+                } catch (err) {
+                    Swal.fire('Lỗi Database', 'Không thể xóa data: ' + err.message, 'error');
+                }
+            }
+        });
     }
 </script>
