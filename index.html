@@ -15,8 +15,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <!-- QUILL.JS CHO TRÌNH SOẠN THẢO VĂN BẢN -->
- <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
- <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
   <!-- Nạp CSS Toàn cục -->
   <link rel="stylesheet" href="style.css">
@@ -42,27 +42,28 @@
         </h1>
         <div class="collapse navbar-collapse mt-lg-4" id="sidebar-menu">
           <ul class="navbar-nav pt-lg-3 w-100">
-            <li class="nav-item">
+            <!-- TẤT CẢ MENU ĐỀU ĐƯỢC ẨN MẶC ĐỊNH & GÁN ID CHUẨN -->
+            <li class="nav-item" id="menu-dashboard" style="display: none;">
               <a class="nav-link nav-menu active" id="nav-dashboard" onclick="switchPage('dashboard')" style="cursor: pointer;">
                 <i class="ti ti-layout-dashboard me-2 fs-2 nav-link-icon"></i> Bảng điều khiển
               </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="menu-member" style="display: none;">
               <a class="nav-link nav-menu" id="nav-member" onclick="switchPage('member')" style="cursor: pointer;">
                 <i class="ti ti-users me-2 fs-2 nav-link-icon"></i> Nhân sự & Quyền
               </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="menu-marketing" style="display: none;">
               <a class="nav-link nav-menu" id="nav-marketing" onclick="switchPage('marketing')" style="cursor: pointer;">
                 <i class="ti ti-headset me-2 fs-2 nav-link-icon"></i> Kho Marketing
               </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="menu-khachhang" style="display: none;">
               <a class="nav-link nav-menu" id="nav-khachhang" onclick="switchPage('khachhang')" style="cursor: pointer;">
                 <i class="ti ti-address-book me-2 fs-2 nav-link-icon"></i> Khách hàng
               </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="menu-teamwork" style="display: none;">
               <a class="nav-link nav-menu" id="nav-teamwork" onclick="switchPage('teamwork')" style="cursor: pointer;">
                 <i class="ti ti-users-group me-2 fs-2 nav-link-icon"></i> Team Work
               </a>
@@ -72,8 +73,8 @@
                 <i class="ti ti-radar me-2 fs-2 nav-link-icon text-danger"></i> Chi tiết Kho MKT
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link nav-menu" id="nav-fbleads" onclick="switchPage('fbleads')" style="cursor: pointer;">
+            <li class="nav-item" id="menu-fbleads" style="display: none;">
+              <a class="nav-link nav-menu" id="nav-nav-fbleads" onclick="switchPage('fbleads')" style="cursor: pointer;">
                 <i class="ti ti-brand-facebook me-2 fs-2 nav-link-icon text-primary"></i> Lead FB Ads
               </a>
             </li>
@@ -110,6 +111,35 @@
     const SUPABASE_KEY = 'sb_publishable_21MzjJvE1aVUJWyW3HCz6A_hcUprSPT';
     window.sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     window.currentUser = null;
+
+    // ==========================================
+    // MA TRẬN PHÂN QUYỀN (PERMISSION MATRIX)
+    // Quản lý tập trung quyền truy cập Module
+    // ==========================================
+    const APP_PERMISSIONS = {
+      'dashboard': ['system', 'admin', 'manager', 'sales', 'marketing'],
+      'member':    ['system', 'admin'],
+      'marketing': ['system', 'admin', 'manager', 'sales', 'marketing'],
+      'khachhang': ['system', 'admin', 'manager', 'sales'],
+      'teamwork':  ['system', 'admin', 'manager', 'sales', 'marketing'],
+      'reportmkt': ['system'],
+      'fbleads':   ['system', 'admin', 'manager', 'marketing'], 
+      'seo':       ['system', 'marketing']
+    };
+
+    // Hàm áp dụng quyền lên Giao diện (Hiển thị/Ẩn Menu)
+    function applyMenuPermissions(role) {
+      Object.keys(APP_PERMISSIONS).forEach(pageId => {
+        const menuEl = document.getElementById('menu-' + pageId);
+        if (menuEl) {
+          if (APP_PERMISSIONS[pageId].includes(role)) {
+            menuEl.style.display = 'block';
+          } else {
+            menuEl.style.display = 'none';
+          }
+        }
+      });
+    }
 
     // 2. ÉP ĐĂNG XUẤT AN TOÀN
     function forceLogout(msg = '') {
@@ -148,17 +178,10 @@
 
         // Cập nhật ngầm giờ truy cập
         window.sbClient.rpc('record_login_time', { p_id: session.id }).then(() => {});
-        // Bật quyền user system
-        if (data.role === 'system') {
-          const mnu = document.getElementById('menu-reportmkt');
-          if (mnu) mnu.style.display = 'block';
-        }
-          // ... logic cũ ...
-         // Bật quyền user system / marketing cho SEO
-         if (data.role === 'system' || data.role === 'marketing') {
-           const seoMnu = document.getElementById('menu-seo');
-           if (seoMnu) seoMnu.style.display = 'block';
-         }
+        
+        // Kích hoạt phân quyền giao diện bằng Ma trận
+        applyMenuPermissions(data.role);
+
         return true;
       } catch (e) {
         forceLogout();
@@ -233,14 +256,12 @@
     
       if (newPassword) {
         try {
-          // Bật trạng thái chờ
           Swal.fire({
             title: 'Đang cập nhật dữ liệu...',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
           });
     
-          // GỌI RPC ĐỂ VƯỢT QUA RLS VÀ CẬP NHẬT AN TOÀN TRÊN SERVER
           const { data: newVersion, error } = await window.sbClient.rpc('change_my_password', {
             p_user_id: window.currentUser.id,
             p_new_password: newPassword.trim()
@@ -248,8 +269,6 @@
     
           if (error) throw error;
     
-          // ĐỒNG BỘ SESSION: Cập nhật password_version mới vào LocalStorage 
-          // để tài khoản hiện tại không bị hệ thống tự động đăng xuất
           window.currentUser.password_version = newVersion;
           localStorage.setItem('crm_session', JSON.stringify(window.currentUser));
     
@@ -271,10 +290,23 @@
       }
     }
     
-    // 5. BỘ ĐỊNH TUYẾN CHUYỂN MODULE (SPA ROUTER)
+    // 5. BỘ ĐỊNH TUYẾN CHUYỂN MODULE (SPA ROUTER) - TÍCH HỢP ROUTE GUARD
     async function switchPage(pageId) {
       const isValid = await verifySystemAccess();
       if (!isValid) return; 
+
+      const userRole = window.currentUser.role;
+
+      // KIỂM TRA QUYỀN TRUY CẬP (ROUTE GUARD)
+      if (!APP_PERMISSIONS[pageId] || !APP_PERMISSIONS[pageId].includes(userRole)) {
+        Swal.fire({
+          icon: 'error', 
+          title: 'Từ chối truy cập', 
+          text: 'Tài khoản của bạn không có quyền truy cập module này.', 
+          confirmButtonColor: '#146654'
+        });
+        return; // Chặn đứng luồng tải trang
+      }
 
       // Tự động đóng menu trên Mobile
       const sidebarMenu = document.getElementById('sidebar-menu');
@@ -323,7 +355,7 @@
       if (pageId === 'teamwork' && typeof loadTeamWorkModule === 'function') loadTeamWorkModule();
       if (pageId === 'reportmkt' && typeof loadReportMktModule === 'function') loadReportMktModule();
       if (pageId === 'fbleads' && typeof initFbLeadsModule === 'function') initFbLeadsModule();
-      if (pageId === 'seo' && typeof initSEO === 'function') initSEO(); // Thêm dòng này
+      if (pageId === 'seo' && typeof initSEO === 'function') initSEO();
     }
 
     // 6. KHỞI CHẠY HỆ THỐNG
