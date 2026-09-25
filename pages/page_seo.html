@@ -165,7 +165,7 @@
             <div id="internalLinksContainer" class="d-flex flex-column gap-2"></div>
           </div>
 
-          <div class="mb-2">
+          <div class="mb-2" id="spNoteWrap">
             <label class="form-label text-muted fw-bold" style="font-size: 11px;">Từ khóa & Ghi chú</label>
             <textarea id="spNote" class="form-control border-dark bg-light" rows="2" placeholder="Nhập từ khóa chính..."></textarea>
           </div>
@@ -294,14 +294,12 @@ window.addInternalLinkRow = function(url = '', anchor = '') {
   container.appendChild(div);
 };
 
-// **BẢN VÁ LỖI QUAN TRỌNG:** Lọc sạch các chuỗi rỗng và mảng rỗng để không bị lỗi 400 JSONB
 window.getInternalLinksData = function() {
   const rows = document.querySelectorAll('#internalLinksContainer .d-flex');
   const data = [];
   rows.forEach(row => {
     const url = row.querySelector('.json-url').value.trim();
     const anchor = row.querySelector('.json-anchor').value.trim();
-    // Chỉ lấy nếu cả 2 trường có dữ liệu hợp lệ
     if(url !== '' || anchor !== '') {
         data.push({ url: url, anchor: anchor });
     }
@@ -324,7 +322,6 @@ window.addBacklinkDetailRow = function(url = '', anchor = '', targetLink = '') {
   container.appendChild(div);
 };
 
-// **BẢN VÁ LỖI QUAN TRỌNG:** Lọc sạch mảng
 window.getBacklinkDetailsData = function() {
   const rows = document.querySelectorAll('#backlinkDetailsContainer .d-flex');
   const data = [];
@@ -522,11 +519,13 @@ window.openSeoPageModal = async function(id = '', type = 'pillar', parentId = ''
     document.getElementById('spGroupWrap').style.display = 'block';
     document.getElementById('lblSpName').innerHTML = 'Tên dự án <span class="text-danger">*</span>';
     document.getElementById('spGroup').required = true;
+    document.getElementById('spNoteWrap').style.display = 'block'; // Hiển thị Ghi chú cho Pillar
   } else {
     document.getElementById('seoPageModalTitle').innerHTML = id ? '<i class="ti ti-pencil me-2"></i>Cập nhật Vệ Tinh' : '<i class="ti ti-file-text me-2"></i>Thêm Vệ Tinh';
     document.getElementById('spGroupWrap').style.display = 'none';
     document.getElementById('lblSpName').innerHTML = 'Tên bài vệ tinh <span class="text-danger">*</span>';
     document.getElementById('spGroup').required = false;
+    document.getElementById('spNoteWrap').style.display = 'none'; // Ẩn Ghi chú đối với Vệ tinh
   }
 
   if (id) {
@@ -538,10 +537,13 @@ window.openSeoPageModal = async function(id = '', type = 'pillar', parentId = ''
       if (error) throw error;
       
       document.getElementById('spName').value = type === 'pillar' ? data.project_name : data.title;
-      if(type === 'pillar') document.getElementById('spGroup').value = data.group_id;
+      if(type === 'pillar') {
+          document.getElementById('spGroup').value = data.group_id;
+          document.getElementById('spNote').value = data.notes || '';
+      }
       document.getElementById('spUrl').value = data.url;
       document.getElementById('spTitle').value = data.title || '';
-      document.getElementById('spNote').value = data.notes || data.keyword || '';
+      
       if(data.internal_links && Array.isArray(data.internal_links)) {
         data.internal_links.forEach(l => window.addInternalLinkRow(l.url, l.anchor));
       }
@@ -559,23 +561,30 @@ window.saveSeoPage = async function() {
   const table = type === 'pillar' ? 'seo_pillars' : 'seo_satellites';
   const originalText = btn.innerHTML;
   
-  // **LẤY VÀ LÀM SẠCH DỮ LIỆU JSONB TỪ FORM**
+  // Lấy và làm sạch dữ liệu mảng Internal Links
   const cleanInternalLinks = window.getInternalLinksData();
 
-  const payload = {
-    url: document.getElementById('spUrl').value.trim(),
-    title: document.getElementById('spTitle').value.trim() || null, // null nếu trống
-    notes: document.getElementById('spNote').value.trim() || null,
-    internal_links: cleanInternalLinks // JSONB MẢNG SẠCH HOẶC TRỐNG []
-  };
+  // BẢN VÁ LỖI CỐT LÕI: TÁCH RIÊNG PAYLOAD CHO PILLAR VÀ SATELLITE
+  let payload = {};
 
   if (type === 'pillar') {
-    payload.project_name = document.getElementById('spName').value.trim();
-    payload.group_id = document.getElementById('spGroup').value;
-    if (!payload.group_id) return Swal.fire('Lỗi', 'Vui lòng chọn Group Website', 'warning');
+      payload = {
+        project_name: document.getElementById('spName').value.trim(),
+        group_id: document.getElementById('spGroup').value,
+        url: document.getElementById('spUrl').value.trim(),
+        title: document.getElementById('spTitle').value.trim() || null,
+        notes: document.getElementById('spNote').value.trim() || null, // Chỉ có Pillar mới truyền notes
+        internal_links: cleanInternalLinks
+      };
+      if (!payload.group_id) return Swal.fire('Lỗi', 'Vui lòng chọn Group Website', 'warning');
   } else {
-    payload.title = document.getElementById('spName').value.trim();
-    payload.pillar_id = document.getElementById('spParentId').value;
+      payload = {
+        title: document.getElementById('spName').value.trim(),
+        pillar_id: document.getElementById('spParentId').value,
+        url: document.getElementById('spUrl').value.trim(),
+        // BỎ QUA NOTES ĐỂ KHÔNG BỊ LỖI PGRST204 TRÊN BẢNG seo_satellites
+        internal_links: cleanInternalLinks
+      };
   }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang lưu...';
@@ -711,7 +720,6 @@ window.saveSeoBacklink = async function() {
   const id = document.getElementById('blId').value;
   const originalText = btn.innerHTML;
   
-  // **LẤY VÀ LÀM SẠCH JSONB TỪ FORM**
   const cleanBacklinkDetails = window.getBacklinkDetailsData();
 
   const payload = {
@@ -719,7 +727,7 @@ window.saveSeoBacklink = async function() {
     login_url: document.getElementById('blLoginUrl').value.trim(),
     username: document.getElementById('blUser').value.trim() || null,
     password: document.getElementById('blPass').value.trim() || null,
-    backlink_details: cleanBacklinkDetails // Mảng sạch
+    backlink_details: cleanBacklinkDetails 
   };
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang lưu...';
