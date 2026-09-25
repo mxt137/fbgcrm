@@ -17,7 +17,7 @@
     <!-- KHU VỰC 1: MENU ĐIỀU HƯỚNG CHÍNH -->
     <div class="row g-4" id="seo-main-menu">
       <div class="col-md-6">
-        <div class="card border-0 shadow-sm" onclick="window.switchSeoModule('structure')" style="cursor: pointer; border-radius: 16px; transition: transform 0.2s;">
+        <div class="card border-0 shadow-sm" onclick="window.switchSeoModule('structure')" style="cursor: pointer; border-radius: 16px; transition: transform 0.2s, box-shadow 0.2s;">
           <div class="card-body p-5 text-center">
             <i class="ti ti-sitemap mb-3" style="font-size: 60px; color: #146654; opacity: 0.9;"></i>
             <h2 class="fw-bolder mb-2" style="font-size: 24px; color: #146654;">CẤU TRÚC SEO DỰ ÁN</h2>
@@ -26,7 +26,7 @@
         </div>
       </div>
       <div class="col-md-6">
-        <div class="card border-0 shadow-sm" onclick="window.switchSeoModule('backlinks')" style="cursor: pointer; border-radius: 16px; transition: transform 0.2s;">
+        <div class="card border-0 shadow-sm" onclick="window.switchSeoModule('backlinks')" style="cursor: pointer; border-radius: 16px; transition: transform 0.2s, box-shadow 0.2s;">
           <div class="card-body p-5 text-center">
             <i class="ti ti-link mb-3" style="font-size: 60px; color: #146654; opacity: 0.9;"></i>
             <h2 class="fw-bolder mb-2" style="font-size: 24px; color: #146654;">QUẢN LÝ BACKLINK ENTITY</h2>
@@ -253,7 +253,7 @@ window.initSEO = function() {
   // ROLE CHECK BẢO MẬT TẠI FRONTEND
   if (!window.currentUser || (window.currentUser.role !== 'system' && window.currentUser.role !== 'marketing')) {
     Swal.fire({icon: 'error', title: 'Từ chối truy cập', text: 'Chức năng này chỉ dành cho Admin (System) và bộ phận Marketing.', confirmButtonColor: '#146654'});
-    switchPage('dashboard');
+    if (typeof switchPage === 'function') switchPage('dashboard');
     return;
   }
   window.switchSeoModule('menu');
@@ -294,13 +294,17 @@ window.addInternalLinkRow = function(url = '', anchor = '') {
   container.appendChild(div);
 };
 
+// **BẢN VÁ LỖI QUAN TRỌNG:** Lọc sạch các chuỗi rỗng và mảng rỗng để không bị lỗi 400 JSONB
 window.getInternalLinksData = function() {
   const rows = document.querySelectorAll('#internalLinksContainer .d-flex');
   const data = [];
   rows.forEach(row => {
     const url = row.querySelector('.json-url').value.trim();
     const anchor = row.querySelector('.json-anchor').value.trim();
-    if(url || anchor) data.push({ url, anchor });
+    // Chỉ lấy nếu cả 2 trường có dữ liệu hợp lệ
+    if(url !== '' || anchor !== '') {
+        data.push({ url: url, anchor: anchor });
+    }
   });
   return data;
 };
@@ -320,6 +324,7 @@ window.addBacklinkDetailRow = function(url = '', anchor = '', targetLink = '') {
   container.appendChild(div);
 };
 
+// **BẢN VÁ LỖI QUAN TRỌNG:** Lọc sạch mảng
 window.getBacklinkDetailsData = function() {
   const rows = document.querySelectorAll('#backlinkDetailsContainer .d-flex');
   const data = [];
@@ -327,7 +332,9 @@ window.getBacklinkDetailsData = function() {
     const url_bai_viet = row.querySelector('.json-bl-url').value.trim();
     const anchor_text = row.querySelector('.json-bl-anchor').value.trim();
     const link_gan = row.querySelector('.json-bl-target').value.trim();
-    if(url_bai_viet || anchor_text || link_gan) data.push({ url_bai_viet, anchor_text, link_gan });
+    if(url_bai_viet !== '' || anchor_text !== '' || link_gan !== '') {
+        data.push({ url_bai_viet: url_bai_viet, anchor_text: anchor_text, link_gan: link_gan });
+    }
   });
   return data;
 };
@@ -361,7 +368,7 @@ window.saveSeoGroup = async function() {
     if (error) throw error;
     bootstrap.Modal.getInstance(document.getElementById('modal-seo-group')).hide();
     await window.loadSeoGroups();
-    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thêm Group Website', showConfirmButton: false, timer: 2000});
+    Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Đã thêm Group Website mới', showConfirmButton: false, timer: 2000});
   } catch (e) { Swal.fire('Lỗi DB', e.message, 'error'); }
   finally { btn.disabled = false; btn.innerHTML = originalText; }
 };
@@ -369,7 +376,7 @@ window.saveSeoGroup = async function() {
 window.deleteCurrentGroup = async function() {
   const groupId = document.getElementById('seoFilterGroup').value;
   if(!groupId) return;
-  const conf = await Swal.fire({ title: 'Xóa toàn bộ Group này?', text: 'Cảnh báo: Toàn bộ bài Pillar và Vệ tinh thuộc Group cũng sẽ bị xóa vĩnh viễn (ON DELETE CASCADE)!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48' });
+  const conf = await Swal.fire({ title: 'Xóa toàn bộ Group này?', text: 'Cảnh báo: Toàn bộ bài Pillar và Vệ tinh thuộc Group cũng sẽ bị xóa vĩnh viễn (CASCADE DELETE)!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48' });
   if (conf.isConfirmed) {
     Swal.fire({ title: 'Đang dọn dẹp dữ liệu...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
     try {
@@ -552,11 +559,14 @@ window.saveSeoPage = async function() {
   const table = type === 'pillar' ? 'seo_pillars' : 'seo_satellites';
   const originalText = btn.innerHTML;
   
+  // **LẤY VÀ LÀM SẠCH DỮ LIỆU JSONB TỪ FORM**
+  const cleanInternalLinks = window.getInternalLinksData();
+
   const payload = {
     url: document.getElementById('spUrl').value.trim(),
-    title: document.getElementById('spTitle').value.trim(),
-    notes: document.getElementById('spNote').value.trim(),
-    internal_links: window.getInternalLinksData() 
+    title: document.getElementById('spTitle').value.trim() || null, // null nếu trống
+    notes: document.getElementById('spNote').value.trim() || null,
+    internal_links: cleanInternalLinks // JSONB MẢNG SẠCH HOẶC TRỐNG []
   };
 
   if (type === 'pillar') {
@@ -571,10 +581,12 @@ window.saveSeoPage = async function() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang lưu...';
   try {
     if (id) {
-      await window.sbClient.from(table).update(payload).eq('id', id);
+      const { error } = await window.sbClient.from(table).update(payload).eq('id', id);
+      if (error) throw error;
     } else { 
       payload.user_id = window.currentUser.id; 
-      await window.sbClient.from(table).insert([payload]); 
+      const { error } = await window.sbClient.from(table).insert([payload]); 
+      if (error) throw error;
     }
     
     bootstrap.Modal.getInstance(document.getElementById('modal-seo-page')).hide();
@@ -583,7 +595,10 @@ window.saveSeoPage = async function() {
     else window.loadSeoTreeForPillar(); 
     
     Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Lưu thành công', showConfirmButton: false, timer: 2000});
-  } catch(e) { Swal.fire('Lỗi DB', e.message, 'error'); }
+  } catch(e) { 
+      console.error("Supabase Save Error:", e);
+      Swal.fire('Lỗi API/DB', `Mã lỗi: ${e.code || 'N/A'}. Chi tiết: ${e.message}`, 'error'); 
+  }
   finally { btn.disabled = false; btn.innerHTML = originalText; }
 };
 
@@ -591,7 +606,7 @@ window.deleteSeoPage = async function(id, type) {
   const table = type === 'pillar' ? 'seo_pillars' : 'seo_satellites';
   const conf = await Swal.fire({ 
      title: 'Xóa trang này?', 
-     text: type === 'pillar' ? 'Lưu ý: Tất cả Satellite vệ tinh liên kết với Pillar này cũng sẽ bị tự động xóa vĩnh viễn!' : '', 
+     text: type === 'pillar' ? 'Lưu ý: Tất cả Satellite vệ tinh liên kết với Pillar này cũng sẽ bị tự động xóa vĩnh viễn (CASCADE)!' : '', 
      icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48' 
   });
   
@@ -696,27 +711,35 @@ window.saveSeoBacklink = async function() {
   const id = document.getElementById('blId').value;
   const originalText = btn.innerHTML;
   
+  // **LẤY VÀ LÀM SẠCH JSONB TỪ FORM**
+  const cleanBacklinkDetails = window.getBacklinkDetailsData();
+
   const payload = {
     group_type: document.getElementById('blType').value,
     login_url: document.getElementById('blLoginUrl').value.trim(),
-    username: document.getElementById('blUser').value.trim(),
-    password: document.getElementById('blPass').value.trim(),
-    backlink_details: window.getBacklinkDetailsData() 
+    username: document.getElementById('blUser').value.trim() || null,
+    password: document.getElementById('blPass').value.trim() || null,
+    backlink_details: cleanBacklinkDetails // Mảng sạch
   };
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang lưu...';
   try {
     if (id) {
-      await window.sbClient.from('seo_backlinks').update(payload).eq('id', id);
+      const { error } = await window.sbClient.from('seo_backlinks').update(payload).eq('id', id);
+      if (error) throw error;
     } else { 
       payload.user_id = window.currentUser.id; 
-      await window.sbClient.from('seo_backlinks').insert([payload]); 
+      const { error } = await window.sbClient.from('seo_backlinks').insert([payload]); 
+      if (error) throw error;
     }
     
     bootstrap.Modal.getInstance(document.getElementById('modal-seo-backlink')).hide();
     window.loadSeoBacklinks();
     Swal.fire({toast: true, position: 'bottom-end', icon: 'success', title: 'Lưu Entity thành công', showConfirmButton: false, timer: 2000});
-  } catch(e) { Swal.fire('Lỗi', e.message, 'error'); }
+  } catch(e) { 
+      console.error("Supabase Save Error:", e);
+      Swal.fire('Lỗi API/DB', `Mã lỗi: ${e.code || 'N/A'}. Chi tiết: ${e.message}`, 'error'); 
+  }
   finally { btn.disabled = false; btn.innerHTML = originalText; }
 };
 
