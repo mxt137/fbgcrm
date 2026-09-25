@@ -73,6 +73,11 @@
                 <i class="ti ti-brand-facebook me-2 fs-2 nav-link-icon text-primary"></i> Lead FB Ads
               </a>
             </li>
+            <li class="nav-item" id="menu-seo" style="display: none;">
+             <a class="nav-link nav-menu" id="nav-seo" onclick="switchPage('seo')" style="cursor: pointer;">
+               <i class="ti ti-sitemap me-2 fs-2 nav-link-icon text-success"></i> Hỗ trợ SEO
+             </a>
+           </li>
           </ul>
         </div>
       </div>
@@ -90,6 +95,7 @@
       <div id="module-teamwork" class="app-module" style="display: none;"></div>
       <div id="module-reportmkt" class="app-module" style="display: none;"></div>
       <div id="module-fbleads" class="app-module" style="display: none;"></div>
+      <div id="module-seo" class="app-module" style="display: none;"></div>
     </div>
   </div>
 
@@ -143,6 +149,12 @@
           const mnu = document.getElementById('menu-reportmkt');
           if (mnu) mnu.style.display = 'block';
         }
+          // ... logic cũ ...
+         // Bật quyền user system / marketing cho SEO
+         if (data.role === 'system' || data.role === 'marketing') {
+           const seoMnu = document.getElementById('menu-seo');
+           if (seoMnu) seoMnu.style.display = 'block';
+         }
         return true;
       } catch (e) {
         forceLogout();
@@ -307,6 +319,7 @@
       if (pageId === 'teamwork' && typeof loadTeamWorkModule === 'function') loadTeamWorkModule();
       if (pageId === 'reportmkt' && typeof loadReportMktModule === 'function') loadReportMktModule();
       if (pageId === 'fbleads' && typeof initFbLeadsModule === 'function') initFbLeadsModule();
+      if (pageId === 'seo' && typeof initSEO === 'function') initSEO(); // Thêm dòng này
     }
 
     // 6. KHỞI CHẠY HỆ THỐNG
